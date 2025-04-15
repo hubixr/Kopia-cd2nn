@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from cd2nn_model import CDNNModel
 import time
-from tensorflow.keras import mixed_precision
+# from tensorflow.keras import mixed_precision
 from PIL import Image
 from PIL import ImageOps
 
@@ -19,9 +19,9 @@ FREQUENCY = 180 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
-PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.5  # [m]
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.1  # [m]
-NUM_LAYERS = 1
+NUM_LAYERS = 3
 EPOCHS = 500
 LEARNING_RATE = 0.1
 BATCH_SIZE = 4
