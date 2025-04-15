@@ -53,7 +53,10 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         print("Doe call")
         re_u = inputs[..., 0]  # Real part
         im_u = inputs[..., 1]  # Imaginary part
-
+        print("checking for nans and infs in diffraction layer at the beginning")
+        re_u = tf.where(tf.math.is_nan(re_u) | tf.math.is_inf(re_u), tf.zeros_like(re_u), re_u)
+        im_u = tf.where(tf.math.is_nan(im_u) | tf.math.is_inf(im_u), tf.zeros_like(im_u), im_u)
+    
         # Ensure phase is properly managed by TensorFlow
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
 
@@ -64,5 +67,10 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         else:
             out_real = re_u * tf.cos(phase) - im_u * tf.sin(phase)
             out_imag = re_u * tf.sin(phase) + im_u * tf.cos(phase)
+        print("checking for nans and infs in diffraction layer at the end")
+        re_u = tf.where(tf.math.is_nan(re_u) | tf.math.is_inf(re_u), tf.zeros_like(re_u), re_u)
+        im_u = tf.where(tf.math.is_nan(im_u) | tf.math.is_inf(im_u), tf.zeros_like(im_u), im_u)
+        out_real = tf.where(tf.math.is_nan(out_real) | tf.math.is_inf(out_real), tf.zeros_like(out_real), out_real)
+        out_imag = tf.where(tf.math.is_nan(out_imag) | tf.math.is_inf(out_imag), tf.zeros_like(out_imag), out_imag)
         print("end doe call")
         return tf.stack([out_real, out_imag], axis=-1)  # [B, H, W, 2]

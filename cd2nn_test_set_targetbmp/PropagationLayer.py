@@ -45,11 +45,30 @@ class PropagationLayer(tf.keras.layers.Layer):
          # Ensure the input tensor has a batch dimension
         if len(inputs.shape) == 3:  # If the input is missing the batch dimension
             inputs = tf.expand_dims(inputs, axis=0)  # Add batch dimension
+            # Debugging: Check for NaN or Inf values in tensors
+        if tf.reduce_any(tf.math.is_nan(re_u)) or tf.reduce_any(tf.math.is_inf(re_u)):
+            print("NaN or Inf detected in re_u")
+        if tf.reduce_any(tf.math.is_nan(im_u)) or tf.reduce_any(tf.math.is_inf(im_u)):
+            print("NaN or Inf detected in im_u")
+        if tf.reduce_any(tf.math.is_nan(self.h_real)) or tf.reduce_any(tf.math.is_inf(self.h_real)):
+            print("NaN or Inf detected in h_real")
+        if tf.reduce_any(tf.math.is_nan(self.h_imag)) or tf.reduce_any(tf.math.is_inf(self.h_imag)):
+            print("NaN or Inf detected in h_imag")
+
         # Expand dimensions for convolution
         h_real = tf.expand_dims(self.h_real, axis=-1)  # Shape: [H, W, 1]
         h_real = tf.expand_dims(h_real, axis=-1)       # Shape: [H, W, 1, 1]
         h_imag = tf.expand_dims(self.h_imag, axis=-1)  # Shape: [H, W, 1]
         h_imag = tf.expand_dims(h_imag, axis=-1)       # Shape: [H, W, 1, 1]
+        if tf.reduce_any(tf.math.is_nan(re_u)) or tf.reduce_any(tf.math.is_inf(re_u)):
+            print("2 NaN or Inf detected in re_u")
+        if tf.reduce_any(tf.math.is_nan(im_u)) or tf.reduce_any(tf.math.is_inf(im_u)):
+            print("2 NaN or Inf detected in im_u")
+        if tf.reduce_any(tf.math.is_nan(h_real)) or tf.reduce_any(tf.math.is_inf(h_real)):
+            print("2 NaN or Inf detected in h_real")
+        if tf.reduce_any(tf.math.is_nan(h_imag)) or tf.reduce_any(tf.math.is_inf(h_imag)):
+            print("2 NaN or Inf detected in h_imag")
+
         print("first conv")
         re_re = tf.nn.conv2d(
             input=tf.expand_dims(re_u, axis=-1),

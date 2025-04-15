@@ -5,7 +5,7 @@ from pathlib import Path
 import os as os
 
 # Parametry przestrzeni
-H, W = 80, 80
+H, W = 128, 128
 px_size_mm = 0.9
 x = np.linspace(-(W//2)*px_size_mm, (W//2)*px_size_mm, W)
 y = np.linspace(-(H//2)*px_size_mm, (H//2)*px_size_mm, H)
@@ -33,7 +33,7 @@ def generate_gaussian_targets(filename):
     plt.close()
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=1000):
+def generate_thz_inputs(folder, num_samples=10):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):

@@ -10,10 +10,11 @@ from PIL import ImageOps
 
 # mixed_precision.set_global_policy('float32')
 
+
 # ================================
 # PARAMETRY UKLADU
 # ================================
-DOE_SHAPE = (80, 80)  # [px]
+DOE_SHAPE = (128, 128)  # [px]
 PIXEL_SIZE = 9e-4  # [m]
 FREQUENCY = 180 * 1e9  # [GHz]
 C = 299792458  # [m/s]
@@ -22,9 +23,9 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.1  # [m]
 NUM_LAYERS = 3
-EPOCHS = 500
+EPOCHS = 5
 LEARNING_RATE = 0.1
-BATCH_SIZE = 4
+BATCH_SIZE = 32
 CALLBACK_PATIENCE = 15
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -70,7 +71,7 @@ def load_bmp_target_field(target_file, shape):
 
 # Add a third channel of zeros to the input fields
 def add_zero_channel(input_data):
-    zero_channel = np.zeros(input_data.shape[:-1] + (1,), dtype=input_data.dtype)  # Create a channel of zeros
+    zero_channel = np.full(input_data.shape[:-1] + (1,), 1e-5, dtype=input_data.dtype)  # Create a channel initialized with 1e-5
     return np.concatenate((input_data, zero_channel), axis=-1)  # Concatenate along the last axis
 
 # Ensure input data is resized or cropped to (128, 128)

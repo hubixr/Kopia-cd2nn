@@ -1,5 +1,7 @@
-import numpy as np
+import os
+import sys
 import tensorflow as tf
+import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from cd2nn_model import CDNNModel
@@ -7,6 +9,8 @@ import time
 # from tensorflow.keras import mixed_precision
 from PIL import Image
 from PIL import ImageOps
+import logging
+logging.getLogger('tensorflow').addFilter(lambda record: '+ptx85' not in record.getMessage())
 
 # mixed_precision.set_global_policy('float32')
 
@@ -19,24 +23,34 @@ FREQUENCY = 180 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
-PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.5  # [m]
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.1  # [m]
 NUM_LAYERS = 1
-EPOCHS = 100
-LEARNING_RATE = 0.003
+EPOCHS = 500
+LEARNING_RATE = 0.1
 BATCH_SIZE = 4
-CALLBACK_PATIENCE = 10
+CALLBACK_PATIENCE = 15
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
-TARGET_FILE = DATA_DIR / "target_field.npy"
+TARGET_FILE = DATA_DIR / "target_field.bmp"
 
-# gpus = tf.config.list_physical_devices('GPU')
-# if gpus:
-#     try:
-#         for gpu in gpus:
-#             tf.config.experimental.set_memory_growth(gpu, True)
-#     except RuntimeError as e:
-#         print(e)
+# List all available GPUs
+gpus = tf.config.list_physical_devices('GPU')
+
+if gpus:
+    try:
+        # Set a manual memory limit (in MB) for each GPU
+        memory_limit_mb = 12288  # Example: 4GB limit
+        for gpu in gpus:
+            tf.config.experimental.set_virtual_device_configuration(
+                gpu,
+                [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memory_limit_mb)]
+            )
+        print(f"Memory limit of {memory_limit_mb} MB set for GPUs.")
+    except RuntimeError as e:
+        print("Error setting memory limit:", e)
+else:
+    print("No GPUs found.")
 
 # ================================
 # FUNKCJE POMOCNICZE
@@ -61,24 +75,23 @@ def load_bmp_fields(input_dir, shape):
         raise ValueError("No valid input fields found in the directory.")
     return np.stack(inputs, axis=0)
 
-# Update to load target from .npy file directly
-def load_npy_target_field(target_file):
-    target = np.load(target_file, allow_pickle=True)  # Load .npy file with pickled data
-    target = np.array(target, dtype=np.float32) / 255.0  # Normalize to 0-1
-    target = np.expand_dims(target, axis=0)  # Add batch dimension
-    return target
+def load_bmp_target_field(target_file, shape):
+    image = Image.open(target_file).convert('L')  # Convert to grayscale
+    image = image.resize(shape, Image.Resampling.LANCZOS)  # Resize to target shape
+    target_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to 0-1
+    target_array = np.expand_dims(target_array, axis=0)  # Add batch dimension
+    return target_array
 
-# Add a third channel of zeros to the input fields
+# Add a second channel of zeros to the input fields
 def add_zero_channel(input_data):
-    zero_channel = np.zeros(input_data.shape[:-1] + (1,), dtype=input_data.dtype)  # Create a channel of zeros
-    return np.concatenate((input_data, zero_channel), axis=-1)  # Concatenate along the last axis
+    small_value_channel = np.full(input_data.shape[:-1] + (1,), 1e-3, dtype=input_data.dtype)  # Create a channel with small values
+    return np.concatenate((input_data, small_value_channel), axis=-1)  # Concatenate along the last axis
 
-"""
 # Ensure input data is resized or cropped to (128, 128)
 def crop_or_resize_input(input_data, target_shape):
     cropped_data = input_data[:, :target_shape[0], :target_shape[1]]  # Crop to target shape
     return cropped_data
-"""
+
 # Update to load .npy files directly without resizing or cropping
 def load_npy_fields(input_dir):
     files = sorted(input_dir.glob("*.npy"))
@@ -90,19 +103,37 @@ def load_npy_fields(input_dir):
         raise ValueError("No valid input fields found in the directory.")
     return np.stack(inputs, axis=0)
 
+# Function to log VRAM usage
+def log_vram_usage():
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        for gpu in gpus:
+            details = tf.config.experimental.get_memory_info('GPU:0')
+            print(f"VRAM Usage: {details['current'] / 1024**2:.2f} MB / {details['peak'] / 1024**2:.2f} MB")
+
+# Add logic to replace NaN or Inf values in tensors
+def replace_nan_inf(tensor):
+    return tf.where(tf.math.is_nan(tensor) | tf.math.is_inf(tensor), tf.zeros_like(tensor))
+
 # ================================
 # GLOWNA CZESC
 # ================================
+print("Monitoring VRAM usage before loading data...")
+log_vram_usage()
+
 print("Laduję dane wejściowe...")
 input_data = load_npy_fields(INPUT_DIR).astype(np.float32)  # Load .npy files directly
 
 # Debugging: Print the shape of input_data
 print(f"Input data shape: {input_data.shape}")
 
-input_data = add_zero_channel(input_data)
+# input_data = add_zero_channel(input_data)
 
 # Debugging: Print the shape of input_data before reshaping
 print(f"Input data shape before reshaping: {input_data.shape}")
+
+# Apply cropping or resizing to input_data
+input_data = crop_or_resize_input(input_data, DOE_SHAPE)
 
 # Debugging: Print the shape of input_data after cropping or resizing
 print(f"Input data shape after cropping or resizing: {input_data.shape}")
@@ -117,9 +148,26 @@ print(f"Input data shape after adding second channel: {input_data.shape}")
 print(f"Input data shape after reshaping: {input_data.shape}")
 print(f"Liczba próbek: {input_data.shape[0]}")
 print("Laduję target...")
-target_data = load_npy_target_field(TARGET_FILE).astype(np.float32)
+target_data = load_bmp_target_field(TARGET_FILE, DOE_SHAPE).astype(np.float32)
 num_samples = input_data.shape[0]
 targets = np.repeat(target_data, num_samples, axis=0)
+
+# Debugging: Check input data for NaN or Inf values before training
+print("Checking input data for NaN or Inf values...")
+if np.any(np.isnan(input_data)) or np.any(np.isinf(input_data)):
+    print("NaN or Inf detected in input_data")
+else:
+    print("No NaN or Inf in input_data")
+
+# Debugging: Check target data for NaN or Inf values
+print("Checking target data for NaN or Inf values...")
+if np.any(np.isnan(targets)) or np.any(np.isinf(targets)):
+    print("NaN or Inf detected in target_data")
+else:
+    print("No NaN or Inf in target_data")
+
+print("Monitoring VRAM usage after loading data...")
+log_vram_usage()
 
 # ================================
 # PODZIAŁ NA ZBIORY
@@ -193,12 +241,18 @@ print("y_train range:", y_train.min(), y_train.max())
 print("x_test range:", x_test.min(), x_test.max())
 print("y_test range:", y_test.min(), y_test.max())
 
+print("Monitoring VRAM usage before training...")
+log_vram_usage()
+
 print("Trenowanie modelu...")
 callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=CALLBACK_PATIENCE, restore_best_weights=True)
 start_time = time.time()
 history = model.fit(train_dataset, validation_data=val_dataset, epochs=EPOCHS, callbacks=[callback], verbose=1)
 end_time = time.time()
 print(f"Model training time: {end_time - start_time:.2f} seconds")
+
+print("Monitoring VRAM usage after training...")
+log_vram_usage()
 
 # Update file naming to include model parameters
 file_suffix = f"layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{opt.learning_rate.numpy()}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"

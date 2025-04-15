@@ -2,6 +2,8 @@ import tensorflow as tf
 from DiffractiveMaskLayer import DiffractiveMaskLayer
 from FirstDiffractiveMaskLayer import FirstDiffractiveMaskLayer
 from PropagationLayer import PropagationLayer
+import logging
+logging.getLogger('tensorflow').addFilter(lambda record: '+ptx85' not in record.getMessage())
 
 class CDNNModel(tf.keras.Model):
 
@@ -20,21 +22,29 @@ class CDNNModel(tf.keras.Model):
         self.prop_layers.append(PropagationLayer(wavelength, distance_to_plane, pixel_size, shape, name=f"prop_{num_layers}"))
         print(f"Final Layer: DOE + Propagation z={distance_to_plane} m")
 
+    def sanitize_tensor(self, tensor, name):
+        """
+        Replaces NaN or Inf values in the tensor with zeros and logs the issue.
+        """
+        if tf.reduce_any(tf.math.is_nan(tensor)) or tf.reduce_any(tf.math.is_inf(tensor)):
+            tf.print(f"Warning: NaN or Inf detected in {name}. Replacing with zeros.")
+            tensor = tf.where(tf.math.is_nan(tensor) | tf.math.is_inf(tensor), tf.zeros_like(tensor), tensor)
+        return tensor
+
     def call(self, inputs):
         """
         inputs: tensor [B, H, W, 2] — zespolone pole wejściowe (Re, Im)
         returns: tensor [B, H, W] — amplituda pola po przejściu przez całą strukturę
         """
         field = inputs
+        field = self.sanitize_tensor(field, "inputs")
         for i, (doe, prop) in enumerate(zip(self.doe_layers, self.prop_layers)):
             field = doe(field)
-            tf.print(f"After DOE Layer {i+1}: field min =", tf.reduce_min(field), ", max =", tf.reduce_max(field), ", mean =", tf.reduce_mean(field))
+            field = self.sanitize_tensor(field, f"field after DOE Layer {i+1}")
+
             field = prop(field)
-            tf.print(f"After Propagation Layer {i+1}: field min =", tf.reduce_min(field), ", max =", tf.reduce_max(field), ", mean =", tf.reduce_mean(field))
+            field = self.sanitize_tensor(field, f"field after Propagation Layer {i+1}")
 
         intensity = tf.reduce_sum(tf.square(field), axis=-1)  # Amplitude
-        normalized_intensity = intensity / tf.reduce_max(intensity)  
-        print("normalized intensity min:", tf.reduce_min(normalized_intensity))
-        print("normalized intensity max:", tf.reduce_max(normalized_intensity))
-        print("normalized intensity mean:", tf.reduce_mean(normalized_intensity))
+        normalized_intensity = intensity / tf.reduce_max(intensity)  # Normalization to 0-1
         return normalized_intensity
