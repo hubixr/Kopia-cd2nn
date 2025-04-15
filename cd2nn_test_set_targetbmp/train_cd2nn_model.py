@@ -15,14 +15,17 @@ from PIL import ImageOps
 # ================================
 DOE_SHAPE = (80, 80)  # [px]
 PIXEL_SIZE = 9e-4  # [m]
-WAVELENGTH = 180e-6  # [m]s
+FREQUENCY = 180 * 1e9  # [GHz]
+C = 299792458  # [m/s]
+WAVELENGTH = C / (FREQUENCY)  # [m]
+print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.5  # [m]
-PROPAGATION_DISTANCE_TO_TARGET = 1  # [m]
+PROPAGATION_DISTANCE_TO_TARGET = 0.1  # [m]
 NUM_LAYERS = 1
 EPOCHS = 500
 LEARNING_RATE = 0.1
 BATCH_SIZE = 4
-CALLBACK_PATIENCE = 1000
+CALLBACK_PATIENCE = 15
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
