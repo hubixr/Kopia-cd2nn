@@ -1,0 +1,4 @@
+# Ignoruj wszystkie pliki .jpg i .png
+*.pb
+logs/
+*.npy
