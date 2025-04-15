@@ -5,23 +5,27 @@ from pathlib import Path
 from cd2nn_model import CDNNModel
 import time
 from tensorflow.keras import mixed_precision
+from PIL import Image
+from PIL import ImageOps
 
 # mixed_precision.set_global_policy('float32')
 
 # ================================
 # PARAMETRY UKLADU
 # ================================
-DOE_SHAPE = (80, 80)
+DOE_SHAPE = (80, 80)  # [px]
 PIXEL_SIZE = 9e-4  # [m]
-WAVELENGTH = 140e-6  # [m]
-PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
+WAVELENGTH = 180e-6  # [m]s
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.5  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 1  # [m]
 NUM_LAYERS = 1
-EPOCHS = 100
-
+EPOCHS = 500
+LEARNING_RATE = 0.1
+BATCH_SIZE = 4
+CALLBACK_PATIENCE = 1000
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
-TARGET_FILE = DATA_DIR / "target_field.npy"
+TARGET_FILE = DATA_DIR / "target_field.bmp"
 
 # gpus = tf.config.list_physical_devices('GPU')
 # if gpus:
@@ -35,37 +39,84 @@ TARGET_FILE = DATA_DIR / "target_field.npy"
 # FUNKCJE POMOCNICZE
 # ================================
 
-def load_input_fields(input_dir, shape):
-    files = sorted(input_dir.glob("*.npy"))
-    # print(f"Found files: {files}")  # Debugging line
+# Function to rescale and crop a .bmp file to match DOE_SHAPE
+def rescale_and_crop_bmp(image, target_shape):
+    # Ensure the image is resized while maintaining aspect ratio
+    image = ImageOps.fit(image, target_shape, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    return image
+
+# Update the load_bmp_fields function to use rescale_and_crop_bmp
+def load_bmp_fields(input_dir, shape):
+    files = sorted(input_dir.glob("*.bmp"))
     inputs = []
     for f in files:
-        field = np.load(f)
-        if field.shape != shape + (2,):
-            raise ValueError(f"Plik {f} ma kształt {field.shape}, oczekiwano {shape + (2,)}")
-        field = np.round(field, 9)
+        image = Image.open(f).convert('L')  # Convert to grayscale
+        image = rescale_and_crop_bmp(image, shape)  # Rescale and crop to target shape
+        image_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to 0-1
+        inputs.append(image_array)
+    if not inputs:
+        raise ValueError("No valid input fields found in the directory.")
+    return np.stack(inputs, axis=0)
+
+def load_bmp_target_field(target_file, shape):
+    image = Image.open(target_file).convert('L')  # Convert to grayscale
+    image = image.resize(shape, Image.Resampling.LANCZOS)  # Resize to target shape
+    target_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to 0-1
+    target_array = np.expand_dims(target_array, axis=0)  # Add batch dimension
+    return target_array
+
+# Add a third channel of zeros to the input fields
+def add_zero_channel(input_data):
+    zero_channel = np.zeros(input_data.shape[:-1] + (1,), dtype=input_data.dtype)  # Create a channel of zeros
+    return np.concatenate((input_data, zero_channel), axis=-1)  # Concatenate along the last axis
+
+# Ensure input data is resized or cropped to (128, 128)
+def crop_or_resize_input(input_data, target_shape):
+    cropped_data = input_data[:, :target_shape[0], :target_shape[1]]  # Crop to target shape
+    return cropped_data
+
+# Update to load .npy files directly without resizing or cropping
+def load_npy_fields(input_dir):
+    files = sorted(input_dir.glob("*.npy"))
+    inputs = []
+    for f in files:
+        field = np.load(f)  # Load .npy file directly
         inputs.append(field)
     if not inputs:
         raise ValueError("No valid input fields found in the directory.")
     return np.stack(inputs, axis=0)
 
-def load_target_field(target_file, shape):
-    target = np.load(target_file)
-    if target.shape != shape:
-        raise ValueError(f"Target field ma kształt {target.shape}, oczekiwano {shape}")
-    target = np.expand_dims(target, axis=0)
-    target = np.round(target, 9)
-    return target
-
 # ================================
 # GLOWNA CZESC
 # ================================
 print("Laduję dane wejściowe...")
-# Revert to original input data loading logic
-input_data = load_input_fields(INPUT_DIR, DOE_SHAPE).astype(np.float16)
+input_data = load_npy_fields(INPUT_DIR).astype(np.float32)  # Load .npy files directly
+
+# Debugging: Print the shape of input_data
+print(f"Input data shape: {input_data.shape}")
+
+input_data = add_zero_channel(input_data)
+
+# Debugging: Print the shape of input_data before reshaping
+print(f"Input data shape before reshaping: {input_data.shape}")
+
+# Apply cropping or resizing to input_data
+input_data = crop_or_resize_input(input_data, DOE_SHAPE)
+
+# Debugging: Print the shape of input_data after cropping or resizing
+print(f"Input data shape after cropping or resizing: {input_data.shape}")
+
+
+# Debugging: Print the shape of input_data after adding the second channel
+print(f"Input data shape after adding second channel: {input_data.shape}")
+
+
+
+# Debugging: Print input data shape
+print(f"Input data shape after reshaping: {input_data.shape}")
 print(f"Liczba próbek: {input_data.shape[0]}")
 print("Laduję target...")
-target_data = load_target_field(TARGET_FILE, DOE_SHAPE).astype(np.float16)
+target_data = load_bmp_target_field(TARGET_FILE, DOE_SHAPE).astype(np.float32)
 num_samples = input_data.shape[0]
 targets = np.repeat(target_data, num_samples, axis=0)
 
@@ -121,7 +172,7 @@ model = CDNNModel(
 )
 
 loss_fn = tf.keras.losses.MeanSquaredError()
-opt = tf.keras.optimizers.Adam(learning_rate=0.003, clipnorm=1.0)
+opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipnorm for gradient clipping - better stability
 # opt = tf.train.experimental.enable_mixed_precision_graph_rewrite(opt)
 # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lambda epoch: 1e-4 * 10**(epoch/20))
 model.compile(optimizer=opt, loss=loss_fn, metrics=['accuracy'])
@@ -130,11 +181,11 @@ model.compile(optimizer=opt, loss=loss_fn, metrics=['accuracy'])
 print("Tworzenie datasetów...")
 start_time = time.time()
 # Reduce batch size for better accuracy
-train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(500).batch(8).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
+train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(500).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
 end_time = time.time()
 print(f"Data loading time: {end_time - start_time:.2f} seconds")
-val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(8).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
-test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(8).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
+val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
+test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
 print("Data parameters:")
 print("x_train range:", x_train.min(), x_train.max())
 print("y_train range:", y_train.min(), y_train.max())
@@ -142,19 +193,21 @@ print("x_test range:", x_test.min(), x_test.max())
 print("y_test range:", y_test.min(), y_test.max())
 
 print("Trenowanie modelu...")
-callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
+callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=CALLBACK_PATIENCE, restore_best_weights=True)
 start_time = time.time()
 history = model.fit(train_dataset, validation_data=val_dataset, epochs=EPOCHS, callbacks=[callback], verbose=1)
 end_time = time.time()
 print(f"Model training time: {end_time - start_time:.2f} seconds")
 
+# Update file naming to include model parameters
+file_suffix = f"layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{opt.learning_rate.numpy()}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"
 
 # Save the best trained phase mask to a folder
 output_dir = Path("best_doe_masks")
 output_dir.mkdir(exist_ok=True)
 for i, layer in enumerate(model.doe_layers):
     phase = layer.phase.numpy()
-    output_file = output_dir / f'best_trained_doe_phase_{i + 1}.npy'
+    output_file = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}.npy'
     np.save(output_file, phase)
     print(f"Saved best trained phase mask for DOE Layer {i + 1} to {output_file}")
 
@@ -163,19 +216,20 @@ history_dir = Path("saved_histories")
 history_dir.mkdir(exist_ok=True)
 
 # Save training history to a file with the current date
-history_file = history_dir / f"history_{time.strftime('%Y-%m-%d')}.npy"
+history_file = history_dir / f"history_{file_suffix}_{time.strftime('%Y-%m-%d')}.npy"
 np.save(history_file, history.history)
 print(f"Training history saved to {history_file}")
 
 # Save training history as a graph with accuracy and loss over epochs
 plt.figure(figsize=(12, 6))
 
-# Plot loss
+# Plot loss with a logarithmic y-axis
 plt.subplot(1, 2, 1)
 plt.plot(history.history['loss'], label='Training Loss')
 if 'val_loss' in history.history:
     plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.title('Loss over Epochs')
+plt.yscale('log')  # Set y-axis to logarithmic scale
+plt.title('Loss over Epochs (Log Scale)')
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.legend()
@@ -191,7 +245,7 @@ plt.ylabel('Accuracy')
 plt.legend()
 
 # Save the graph
-history_graph_file = f"saved_histories/history_graph_{time.strftime('%Y-%m-%d')}.png"
+history_graph_file = f"saved_histories/history_graph_{file_suffix}_{time.strftime('%Y-%m-%d')}.png"
 plt.tight_layout()
 plt.savefig(history_graph_file)
 plt.close()
@@ -238,9 +292,12 @@ for i in range(NUM_LAYERS):
     axes[3, i].axis('off')
     plt.colorbar(im3, ax=axes[3, i], fraction=0.046, pad=0.04)
 
+# Update sample output file naming to include model parameters
+sample_output_file = f'cdnn_sample_outputs_v2_with_phase_and_target_{file_suffix}.png'
 plt.tight_layout()
-plt.savefig('cdnn_sample_outputs_v2_with_phase_and_target.png')
+plt.savefig(sample_output_file)
 plt.close()
+print(f"Sample output saved to {sample_output_file}")
     
 # ================================
 # ZAPIS MODELU

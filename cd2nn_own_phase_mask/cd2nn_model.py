@@ -28,10 +28,13 @@ class CDNNModel(tf.keras.Model):
         field = inputs
         for i, (doe, prop) in enumerate(zip(self.doe_layers, self.prop_layers)):
             field = doe(field)
-            # tf.print(f"After DOE Layer {i+1}: field min =", tf.reduce_min(field), ", max =", tf.reduce_max(field), ", mean =", tf.reduce_mean(field))
+            tf.print(f"After DOE Layer {i+1}: field min =", tf.reduce_min(field), ", max =", tf.reduce_max(field), ", mean =", tf.reduce_mean(field))
             field = prop(field)
-            # tf.print(f"After Propagation Layer {i+1}: field min =", tf.reduce_min(field), ", max =", tf.reduce_max(field), ", mean =", tf.reduce_mean(field))
+            tf.print(f"After Propagation Layer {i+1}: field min =", tf.reduce_min(field), ", max =", tf.reduce_max(field), ", mean =", tf.reduce_mean(field))
 
         intensity = tf.reduce_sum(tf.square(field), axis=-1)  # Amplitude
-        normalized_intensity = intensity / tf.reduce_max(intensity)  # Normalization to 0-1
+        normalized_intensity = intensity / tf.reduce_max(intensity)  
+        print("normalized intensity min:", tf.reduce_min(normalized_intensity))
+        print("normalized intensity max:", tf.reduce_max(normalized_intensity))
+        print("normalized intensity mean:", tf.reduce_mean(normalized_intensity))
         return normalized_intensity

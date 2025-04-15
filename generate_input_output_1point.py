@@ -65,7 +65,7 @@ if __name__ == "__main__":
     # Load the target field
     target_field = np.load(target_file)
 
-    # Plot the target field
+    # # Plot the target field
     plt.figure(figsize=(15, 10))
     plt.subplot(3, 4, 1)
     plt.imshow(target_field, cmap='hot', extent=[x[0], x[-1], y[0], y[-1]])

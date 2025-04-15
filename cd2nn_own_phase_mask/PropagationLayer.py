@@ -19,6 +19,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         k = 2 * np.pi / self.wavelength
         arg = k * self.distance + (np.pi * r2) / (self.wavelength * self.distance)
         denom = self.wavelength * self.distance
+        print("distance in propagation layer:", self.distance)
 
         # Compute h_real and h_imag using NumPy
         h_real = np.sin(arg) / denom
@@ -48,6 +49,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         h_real = tf.expand_dims(h_real, axis=-1)       # Shape: [H, W, 1, 1]
         h_imag = tf.expand_dims(self.h_imag, axis=-1)  # Shape: [H, W, 1]
         h_imag = tf.expand_dims(h_imag, axis=-1)       # Shape: [H, W, 1, 1]
+        h_real = h_real / tf.reduce_max(h_real)
+        h_imag = h_imag / tf.reduce_max(h_imag)
         print("first conv")
         re_re = tf.nn.conv2d(
             input=tf.expand_dims(re_u, axis=-1),
@@ -79,8 +82,12 @@ class PropagationLayer(tf.keras.layers.Layer):
 
         print("end of conv")
 
+        print("re_re", re_re[0,0,0,0].numpy())
+        print("im_im", im_im[0,0,0,0].numpy())
         out_real = tf.squeeze(re_re - im_im, axis=-1)
         out_imag = tf.squeeze(re_im + im_re, axis=-1)
         out_real = out_real / tf.reduce_max(out_real) 
         out_imag = out_imag / tf.reduce_max(out_imag) 
+        print("out_real", out_real[0,0,0].numpy())
+        print("out_imag", out_imag[0,0,0].numpy())
         return tf.stack([out_real, out_imag], axis=-1)

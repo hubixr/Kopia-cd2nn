@@ -42,7 +42,9 @@ class PropagationLayer(tf.keras.layers.Layer):
         inputs = tf.cast(inputs, tf.float32)  # Cast inputs to float32
         re_u = inputs[..., 0]
         im_u = inputs[..., 1]
-
+         # Ensure the input tensor has a batch dimension
+        if len(inputs.shape) == 3:  # If the input is missing the batch dimension
+            inputs = tf.expand_dims(inputs, axis=0)  # Add batch dimension
         # Expand dimensions for convolution
         h_real = tf.expand_dims(self.h_real, axis=-1)  # Shape: [H, W, 1]
         h_real = tf.expand_dims(h_real, axis=-1)       # Shape: [H, W, 1, 1]
