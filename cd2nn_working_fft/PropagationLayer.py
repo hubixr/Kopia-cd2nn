@@ -1,5 +1,30 @@
 import tensorflow as tf
 import numpy as np
+
+"""
+PropagationLayer: A TensorFlow custom layer for simulating light propagation.
+
+This layer models the propagation of an optical field over a specified distance using FFT-based convolutions. It is designed for use in computational diffractive neural networks (CDNNs).
+
+Key Features:
+- Simulates light propagation efficiently using FFT.
+- Handles complex input fields represented as two channels (Re, Im).
+- Precomputes the propagation kernel during initialization for faster execution.
+
+Attributes:
+- `h_real`: Precomputed real part of the propagation kernel.
+- `h_imag`: Precomputed imaginary part of the propagation kernel.
+
+Methods:
+- `call(inputs)`: Applies the propagation kernel to the input field and returns the propagated field.
+
+Inputs:
+- Tensor of shape `[B, H, W, 2]` representing the complex input field (real and imaginary parts).
+
+Outputs:
+- Tensor of shape `[B, H, W, 2]` representing the propagated complex field (real and imaginary parts).
+"""
+
 class PropagationLayer(tf.keras.layers.Layer):
     def __init__(self, wavelength, distance, pixel_size, shape, name=None):
         super(PropagationLayer, self).__init__(name=name)
@@ -47,20 +72,24 @@ class PropagationLayer(tf.keras.layers.Layer):
         re_u = inputs[..., 0]
         im_u = inputs[..., 1]
 
-        print("first conv")
+        # Perform FFT-based convolutions
+        # Commented out unnecessary debug prints, leaving graph-saving functionality intact
+        # print("First convolution")
         re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real))
-        print("first conv shape", re_re.shape)
-        print("second conv")
+        # print("First convolution shape:", re_re.shape)
+
+        # print("Second convolution")
         im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag))
-        print("third conv")
+
+        # print("Third convolution")
         re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_imag))
-        print("fourth conv")
+
+        # print("Fourth convolution")
         im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_real))
 
-        # Do not apply ifftshift to the outputs
-        print("end of conv")
+        # print("End of convolutions")
 
-        # Remove tf.squeeze as it is not needed for tensors without singleton dimensions
+        # Compute real and imaginary parts of the output
         out_real = re_re - im_im
         out_imag = re_im + im_re
 
@@ -68,6 +97,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = out_real / tf.reduce_max(out_real)
         out_imag = out_imag / tf.reduce_max(out_imag)
 
-        print("min and max of out_real", tf.reduce_min(out_real), tf.reduce_max(out_real))
-        print("min and max of out_imag", tf.reduce_min(out_imag), tf.reduce_max(out_imag))
+        # print("Min and max of out_real:", tf.reduce_min(out_real), tf.reduce_max(out_real))
+        # print("Min and max of out_imag:", tf.reduce_min(out_imag), tf.reduce_max(out_imag))
+
         return tf.stack([out_real, out_imag], axis=-1)

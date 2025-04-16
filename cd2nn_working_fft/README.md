@@ -31,3 +31,54 @@ These layers can be used in TensorFlow models to simulate optical systems. The `
 ## References
 
 - TensorFlow Custom Layers: [https://www.tensorflow.org/tutorials/customization/custom_layers](https://www.tensorflow.org/tutorials/customization/custom_layers)
+
+# CD2NN Working FFT
+
+This directory contains the implementation of the CD2NN model using the FFT (Fast Fourier Transform) approach for diffractive optical element (DOE) design and training. The FFT-based approach is used to simulate light propagation efficiently.
+
+## Directory Structure
+
+- **cd2nn_model.py**: Contains the implementation of the CD2NN model architecture.
+- **cdnn_model_v2.keras**: The saved trained model in Keras format.
+- **conv2d_manual.py**: Implements manual 2D convolution operations.
+- **DiffractiveMaskLayer.py**: Defines the diffractive mask layer used in the model.
+- **FirstDiffractiveMaskLayer.py**: Implements the first diffractive mask layer.
+- **learning_rate_vs_loss.png**: A graph showing the relationship between learning rate and loss during training.
+- **logs/**: Directory containing training logs.
+- **saved_histories/**: Directory containing saved training histories.
+- **best_doe_masks/**: Directory containing the best-trained DOE phase masks.
+- **cdnn_data/**: Directory containing input and target data for training and testing.
+
+## Key Features
+
+- **FFT-Based Propagation**: Efficient simulation of light propagation using FFT.
+- **Customizable DOE Design**: Supports multiple diffractive mask layers for advanced optical designs.
+- **Training and Testing**: Scripts for training the model and evaluating its performance.
+
+## Usage
+
+1. **Training**:
+   Use the `train_cd2nn_model.py` script to train the model. Ensure the input and target data are prepared in the `cdnn_data/` directory.
+
+2. **Testing**:
+   Use the `test.ipynb` notebook to evaluate the model's performance and visualize the results.
+
+3. **Visualization**:
+   - Use `learning_rate_vs_loss.png` to analyze the effect of learning rate on training.
+   - Visualize output intensity using `output_intensity.png`.
+
+## Requirements
+
+- Python 3.x
+- TensorFlow
+- NumPy
+- Matplotlib
+
+## Notes
+
+- Ensure the input data is normalized and matches the expected dimensions.
+- Modify the model parameters in `cd2nn_model.py` as needed for your specific use case.
+
+## Acknowledgments
+
+This project is part of the CD2NN-for-THz framework for designing diffractive optical elements using neural networks.

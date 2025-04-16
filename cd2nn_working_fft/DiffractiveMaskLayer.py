@@ -2,35 +2,27 @@ import tensorflow as tf
 import numpy as np
 
 """
-Assumptions: 
-1. The trainable parameter is the phase map, which is added to the DOE transmittance.
-2. Network operation: DOE -> propagation ->  detection.
-3. The real amplitude value of the field must be expanded into 2 channels (Re, Im) to perform convolution.
-4. The propagation layer is not trainable but is added to the model as a layer.
-5. Propagation is described as a convolution with the impulse response h(x, y).
-6. The amplitude values of the field are normalized to 0-1 before propagation.
+DiffractiveMaskLayer: A TensorFlow custom layer representing a diffractive optical element (DOE).
 
-Parameters:
-- shape: shape of the layer (H, W) - size of the DOE layer, e.g., (128, 128), plus 2 channels responsible for amplitude Re and Im (128, 128, 2).
-- wavelength: wavelength of light in meters.
-- distance: distance to the detector in meters.
-- pixel_size: size of a pixel in meters.
+This layer introduces a phase delay to the input optical field, simulating the effect of a DOE. The phase map is a trainable parameter, allowing the network to optimize the DOE for specific tasks.
 
-Technical details:
-Input: tensor of shape [B, H, W, 2], where inputs represent U (Re, Im).
-Output: tensor of shape [B, H, W, 2], where outputs[..., 0] is Re(U), and outputs[..., 1] is Im(U).
+Key Features:
+- Trainable phase map initialized randomly (can be replaced with a constant value).
+- Handles complex input fields represented as two channels (Re, Im).
+- Ensures numerical stability by handling NaN and Inf values in the input and output fields.
 
-Source:
-https://www.tensorflow.org/tutorials/customization/custom_layers
+Attributes:
+- `phase`: Trainable weight representing the phase map of the DOE.
+
+Methods:
+- `call(inputs)`: Applies the phase modulation to the input field and returns the modulated field.
+
+Inputs:
+- Tensor of shape `[B, H, W, 2]` representing the complex input field (real and imaginary parts).
+
+Outputs:
+- Tensor of shape `[B, H, W, 2]` representing the modulated complex field (real and imaginary parts).
 """
-
-"""
-Class Assumptions: Diffractive DOE layer introducing phase delay.
-Contains only the transformation of the field due to the DOE element.
-Input: tensor [B, H, W, 2] (Re, Im).
-Output: tensor [B, H, W, 2] (Re, Im).
-"""
-# Currently, the phase is initialized randomly, but it can be replaced with a constant value.
 
 class DiffractiveMaskLayer(tf.keras.layers.Layer):
     def __init__(self, shape, name=None):
