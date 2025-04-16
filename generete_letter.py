@@ -12,33 +12,35 @@ x = np.linspace(-(W//2)*px_size_mm, (W//2)*px_size_mm, W)
 y = np.linspace(-(H//2)*px_size_mm, (H//2)*px_size_mm, H)
 X, Y = np.meshgrid(x, y)
 
-# --- 1. Generowanie dwóch ognisk Gaussa ---
-def generate_gaussian_targets(filename):
-    center1 = [-20, 0]  # mm
-    center2 = [20, 0]   # mm
-    sigma = 6           # mm  # Increased sigma to make the points 2 times bigger
+# --- 1. Generowanie litery H jako celu ---
+def generate_letter_target(filename):
+    letter_size = (50, 50)  # Size of the letter H in pixels
+    letter_image = np.zeros((H, W), dtype=np.float32)
 
-    cov = [[sigma**2, 0], [0, sigma**2]]
+    # Define the letter H in the center of the image
+    start_x, start_y = (H - letter_size[0]) // 2, (W - letter_size[1]) // 2
+    end_x, end_y = start_x + letter_size[0], start_y + letter_size[1]
 
-    rv1 = multivariate_normal(mean=center1, cov=cov)
-    rv2 = multivariate_normal(mean=center2, cov=cov)
+    # Draw the vertical bars of H
+    letter_image[start_x:end_x, start_y:start_y + 10] = 1.0  # Left bar
+    letter_image[start_x:end_x, end_y - 10:end_y] = 1.0  # Right bar
 
-    gaussian_map = rv1.pdf(np.stack([X.ravel(), Y.ravel()], axis=1)).reshape(H, W)
-    gaussian_map += rv2.pdf(np.stack([X.ravel(), Y.ravel()], axis=1)).reshape(H, W)
+    # Draw the horizontal bar of H
+    letter_image[start_x + letter_size[0] // 2 - 5:start_x + letter_size[0] // 2 + 5, start_y:end_y] = 1.0
 
-    gaussian_map /= gaussian_map.max()
-
-    np.save(filename, gaussian_map)
-    plt.imshow(gaussian_map, cmap='hot', extent=[x[0], x[-1], y[0], y[-1]])
-    plt.title("Target Gaussian Spots")
+    # Normalize and save the letter image
+    letter_image /= letter_image.max()
+    np.save(filename, letter_image)
+    plt.imshow(letter_image, cmap='hot', extent=[x[0], x[-1], y[0], y[-1]])
+    plt.title("Target Letter H")
     plt.colorbar()
     plt.savefig(filename.with_suffix('.png'))
     plt.close()
 
-    # Save the Gaussian map as a grayscale BMP file
+    # Save the letter image as a grayscale BMP file
     bmp_filename = filename.with_suffix('.bmp')
-    scaled_gaussian_map = (gaussian_map * 255).astype(np.uint8)  # Scale to 0-255
-    gray_image = Image.fromarray(scaled_gaussian_map, mode='L')
+    scaled_letter_image = (letter_image * 255).astype(np.uint8)  # Scale to 0-255
+    gray_image = Image.fromarray(scaled_letter_image, mode='L')
     gray_image.save(bmp_filename)
     print(f"Target saved as grayscale BMP: {bmp_filename}")
 
@@ -64,5 +66,5 @@ def generate_thz_inputs(folder, num_samples=1000):
 if __name__ == "__main__":
     os.makedirs("./cdnn_data", exist_ok=True)
     output_folder = Path("./cdnn_data")
-    generate_gaussian_targets(output_folder / "target_field.npy")
+    generate_letter_target(output_folder / "target_field.npy")
     generate_thz_inputs(output_folder / "input_fields")

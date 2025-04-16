@@ -23,9 +23,9 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.1  # [m]
 NUM_LAYERS = 1
-EPOCHS = 100
-LEARNING_RATE = 0.01
-BATCH_SIZE = 2
+EPOCHS = 5000
+LEARNING_RATE = 0.008
+BATCH_SIZE = 32
 CALLBACK_PATIENCE = 10
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -213,7 +213,7 @@ end_time = time.time()
 print(f"Model training time: {end_time - start_time:.2f} seconds")
 
 # Update file naming to include model parameters
-file_suffix = f"layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{opt.learning_rate.numpy()}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"
+file_suffix = f"batch_{BATCH_SIZE}layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{opt.learning_rate.numpy()}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"
 
 # Save the best trained phase mask to a folder
 output_dir = Path("best_doe_masks")
@@ -310,11 +310,31 @@ for i in range(len(model.doe_layers)):
 # Update sample output file naming to include model parameters
 output_dir = Path("sample_outputs")
 output_dir.mkdir(exist_ok=True)
-sample_output_file = output_dir / f'cdnn_sample_outputs_v2_with_phase_and_target_{file_suffix}.png'
+sample_output_file = output_dir / f'output_{file_suffix}.png'
 plt.tight_layout()
 plt.savefig(sample_output_file)
 plt.close()
 print(f"Sample output saved to {sample_output_file}")
+
+# Plot 5 inputs and outputs even if there is only one DOE
+fig, axes = plt.subplots(2, 5, figsize=(18, 8))
+for i in range(5):
+    # Plot input
+    im0 = axes[0, i].imshow(sample_inputs[i, :, :, 0], cmap='gray')
+    axes[0, i].set_title(f'Input {i + 1}')
+    axes[0, i].axis('off')
+    plt.colorbar(im0, ax=axes[0, i], fraction=0.046, pad=0.04)
+
+    # Plot output
+    im1 = axes[1, i].imshow(output_amplitude[i], cmap='hot')
+    axes[1, i].set_title(f'Output {i + 1}')
+    axes[1, i].axis('off')
+    plt.colorbar(im1, ax=axes[1, i], fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.savefig(f"sample_outputs/inputs_outputs_plot_{file_suffix}.png")
+plt.close()
+print("Plotted 5 inputs and outputs.")
     
 # ================================
 # ZAPIS MODELU
