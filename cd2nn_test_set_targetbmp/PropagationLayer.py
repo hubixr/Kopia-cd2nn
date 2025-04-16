@@ -70,7 +70,7 @@ class PropagationLayer(tf.keras.layers.Layer):
             print("2 NaN or Inf detected in h_imag")
 
         print("first conv")
-        re_re = tf.nn.conv2d(
+        re_re = tf.nn.conv2d( #https://stackoverflow.com/questions/37674306/what-is-the-difference-between-same-and-valid-padding-in-tf-nn-max-pool-of-t
             input=tf.expand_dims(re_u, axis=-1),
             filters=h_real,
             strides=[1, 1, 1, 1],
