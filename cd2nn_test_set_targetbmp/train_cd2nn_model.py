@@ -23,8 +23,8 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.1  # [m]
 NUM_LAYERS = 1
-EPOCHS = 5000
-LEARNING_RATE = 0.008
+EPOCHS = 100
+LEARNING_RATE = 0.01
 BATCH_SIZE = 32
 CALLBACK_PATIENCE = 10
 DATA_DIR = Path("./cdnn_data")
@@ -184,11 +184,16 @@ model = CDNNModel(
     pixel_size=PIXEL_SIZE
 )
 
-loss_fn = tf.keras.losses.MeanSquaredError()
+loss_fn = tf.keras.losses.MeanSquaredError()  # Absolute Mean Error
 opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipnorm for gradient clipping - better stability
 # opt = tf.train.experimental.enable_mixed_precision_graph_rewrite(opt)
 # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lambda epoch: 1e-4 * 10**(epoch/20))
-model.compile(optimizer=opt, loss=loss_fn, metrics=['accuracy'])
+
+def psnr_metric(y_true, y_pred):
+    return tf.image.psnr(y_true, y_pred, max_val=1.0)
+
+# Replace accuracy with PSNR in the model compilation
+model.compile(optimizer=opt, loss=loss_fn, metrics=[psnr_metric])
 # mixed_precision.set_global_policy('mixed_float16')
 
 print("Tworzenie datasetów...")
@@ -233,7 +238,7 @@ history_file = history_dir / f"history_{file_suffix}_{time.strftime('%Y-%m-%d')}
 np.save(history_file, history.history)
 print(f"Training history saved to {history_file}")
 
-# Save training history as a graph with accuracy and loss over epochs
+# Save training history as a graph with loss and PSNR over epochs
 plt.figure(figsize=(12, 6))
 
 # Plot loss with a logarithmic y-axis
@@ -247,19 +252,22 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.legend()
 
-# Plot accuracy
+# Plot PSNR metric
 plt.subplot(1, 2, 2)
-plt.plot(history.history['accuracy'], label='Training Accuracy')
-if 'val_accuracy' in history.history:
-    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-plt.title('Accuracy over Epochs')
+plt.plot(history.history['psnr_metric'], label='Training PSNR')
+if 'val_psnr_metric' in history.history:
+    plt.plot(history.history['val_psnr_metric'], label='Validation PSNR')
+plt.title('PSNR over Epochs')
 plt.xlabel('Epochs')
-plt.ylabel('Accuracy')
+plt.ylabel('PSNR (dB)')
 plt.legend()
+
+# Display the graph
+plt.tight_layout()
+plt.show()
 
 # Save the graph
 history_graph_file = f"saved_histories/history_graph_{file_suffix}_{time.strftime('%Y-%m-%d')}.png"
-plt.tight_layout()
 plt.savefig(history_graph_file)
 plt.close()
 print(f"Training history graph saved to {history_graph_file}")
