@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 from pathlib import Path
 import os as os
+from PIL import Image
 
 # Parametry przestrzeni
-H, W = 80, 80
+H, W = 128, 128
 px_size_mm = 0.9
 x = np.linspace(-(W//2)*px_size_mm, (W//2)*px_size_mm, W)
 y = np.linspace(-(H//2)*px_size_mm, (H//2)*px_size_mm, H)
@@ -15,7 +16,7 @@ X, Y = np.meshgrid(x, y)
 def generate_gaussian_targets(filename):
     center1 = [-20, 0]  # mm
     center2 = [20, 0]   # mm
-    sigma = 3           # mm
+    sigma = 6           # mm  # Increased sigma to make the points 2 times bigger
 
     cov = [[sigma**2, 0], [0, sigma**2]]
 
@@ -34,8 +35,15 @@ def generate_gaussian_targets(filename):
     plt.savefig(filename.with_suffix('.png'))
     plt.close()
 
+    # Save the Gaussian map as a grayscale BMP file
+    bmp_filename = filename.with_suffix('.bmp')
+    scaled_gaussian_map = (gaussian_map * 255).astype(np.uint8)  # Scale to 0-255
+    gray_image = Image.fromarray(scaled_gaussian_map, mode='L')
+    gray_image.save(bmp_filename)
+    print(f"Target saved as grayscale BMP: {bmp_filename}")
+
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=1000):
+def generate_thz_inputs(folder, num_samples=200):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):
@@ -50,6 +58,7 @@ def generate_thz_inputs(folder, num_samples=1000):
         field = amp * np.exp(1j * phase)
 
         U = np.stack([np.real(field), np.imag(field)], dtype=np.float32, axis=-1)
+        U[U < 0] = 0
         np.save(folder / f"field_{i:04d}.npy", U)
 
 if __name__ == "__main__":

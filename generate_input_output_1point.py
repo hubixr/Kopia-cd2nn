@@ -33,7 +33,7 @@ def generate_gaussian_targets(filename):
     plt.close()
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=10):
+def generate_thz_inputs(folder, num_samples=200):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):

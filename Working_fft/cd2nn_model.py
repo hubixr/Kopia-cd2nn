@@ -32,9 +32,7 @@ class CDNNModel(tf.keras.Model):
             field = prop(field)
             # tf.print(f"After Propagation Layer {i+1}: field min =", tf.reduce_min(field), ", max =", tf.reduce_max(field), ", mean =", tf.reduce_mean(field))
 
-        intensity = tf.reduce_sum(tf.square(field), axis=-1)  # intensity = |U|^2
+        intensity = tf.reduce_sum(tf.square(field), axis=-1)  # Amplitude
         normalized_intensity = intensity / tf.reduce_max(intensity)  # Normalization to 0-1
         print("Intensity min:", tf.reduce_min(normalized_intensity), "max:", tf.reduce_max(normalized_intensity), "mean:", tf.reduce_mean(normalized_intensity))
-        amplitude = tf.sqrt(intensity)/ tf.reduce_max(tf.sqrt(intensity))  # Amplitude normalization
-        print("Amplitude min:", tf.reduce_min(amplitude), "max:", tf.reduce_max(amplitude), "mean:", tf.reduce_mean(amplitude)) ### Dla amplitudy lepszy trening
-        return amplitude
+        return normalized_intensity

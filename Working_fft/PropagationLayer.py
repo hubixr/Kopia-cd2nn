@@ -19,14 +19,15 @@ class PropagationLayer(tf.keras.layers.Layer):
         k = 2 * np.pi / self.wavelength
         arg = k * self.distance + (np.pi * r2) / (self.wavelength * self.distance)
         denom = self.wavelength * self.distance
-        print("distance in propagation layer:", self.distance)
 
         # Compute h_real and h_imag using NumPy
         h_real = np.sin(arg) / denom
         h_imag = -np.cos(arg) / denom
+
         # Apply fftshift to the kernel during initialization
         h_real = np.fft.fftshift(h_real)
         h_imag = np.fft.fftshift(h_imag)
+
         # Use NumPy arrays for tf.constant_initializer
         self.h_real = self.add_weight(
             name="h_real",
@@ -40,10 +41,7 @@ class PropagationLayer(tf.keras.layers.Layer):
             initializer=tf.constant_initializer(h_imag),
             trainable=False
         )
-    def convolution(x, y):
-        # Perform convolution operation
-        conv = tf.signal.irfft2d(tf.signal.rfft2d(x) * tf.signal.rfft2d(y))
-        return conv 
+
     def call(self, inputs):
         inputs = tf.cast(inputs, tf.float32)  # Cast inputs to float32
         re_u = inputs[..., 0]
@@ -70,7 +68,6 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = out_real / tf.reduce_max(out_real)
         out_imag = out_imag / tf.reduce_max(out_imag)
 
-        print("out real shape", out_real.shape)
-        print("out imag shape", out_imag.shape)
-
+        print("min and max of out_real", tf.reduce_min(out_real), tf.reduce_max(out_real))
+        print("min and max of out_imag", tf.reduce_min(out_imag), tf.reduce_max(out_imag))
         return tf.stack([out_real, out_imag], axis=-1)

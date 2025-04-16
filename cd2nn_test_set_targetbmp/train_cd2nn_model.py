@@ -22,23 +22,32 @@ WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.1  # [m]
-NUM_LAYERS = 3
-EPOCHS = 5
-LEARNING_RATE = 0.1
-BATCH_SIZE = 32
-CALLBACK_PATIENCE = 15
+NUM_LAYERS = 1
+EPOCHS = 100
+LEARNING_RATE = 0.01
+BATCH_SIZE = 2
+CALLBACK_PATIENCE = 10
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
 
-# gpus = tf.config.list_physical_devices('GPU')
-# if gpus:
-#     try:
-#         for gpu in gpus:
-#             tf.config.experimental.set_memory_growth(gpu, True)
-#     except RuntimeError as e:
-#         print(e)
+# List all available GPUs
+gpus = tf.config.list_physical_devices('GPU')
 
+if gpus:
+    try:
+        # Set a manual memory limit (in MB) for each GPU
+        memory_limit_mb = 12288  # Example: 4GB limit
+        for gpu in gpus:
+            tf.config.experimental.set_virtual_device_configuration(
+                gpu,
+                [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=memory_limit_mb)]
+            )
+        print(f"Memory limit of {memory_limit_mb} MB set for GPUs.")
+    except RuntimeError as e:
+        print("Error setting memory limit:", e)
+else:
+    print("No GPUs found.")
 # ================================
 # FUNKCJE POMOCNICZE
 # ================================
@@ -71,7 +80,7 @@ def load_bmp_target_field(target_file, shape):
 
 # Add a third channel of zeros to the input fields
 def add_zero_channel(input_data):
-    zero_channel = np.full(input_data.shape[:-1] + (1,), 1e-5, dtype=input_data.dtype)  # Create a channel initialized with 1e-5
+    zero_channel = np.zeros(input_data.shape[:-1] + (1,), dtype=input_data.dtype)  # Create a channel of zeros
     return np.concatenate((input_data, zero_channel), axis=-1)  # Concatenate along the last axis
 
 # Ensure input data is resized or cropped to (128, 128)
@@ -273,7 +282,9 @@ for i, layer in enumerate(model.doe_layers):
     print(f"DOE Layer {i+1} phase shape:", layer.phase.numpy().shape)
 
 fig, axes = plt.subplots(4, 5, figsize=(18, 12))
-for i in range(NUM_LAYERS):
+
+# Update the loop to iterate over the range of len(model.doe_layers)
+for i in range(len(model.doe_layers)):
     im0 = axes[0, i].imshow(sample_inputs[i, :, :, 0], cmap='gray')
     axes[0, i].set_title(f'Input {i}')
     axes[0, i].axis('off')
@@ -297,7 +308,9 @@ for i in range(NUM_LAYERS):
     plt.colorbar(im3, ax=axes[3, i], fraction=0.046, pad=0.04)
 
 # Update sample output file naming to include model parameters
-sample_output_file = f'cdnn_sample_outputs_v2_with_phase_and_target_{file_suffix}.png'
+output_dir = Path("sample_outputs")
+output_dir.mkdir(exist_ok=True)
+sample_output_file = output_dir / f'cdnn_sample_outputs_v2_with_phase_and_target_{file_suffix}.png'
 plt.tight_layout()
 plt.savefig(sample_output_file)
 plt.close()
