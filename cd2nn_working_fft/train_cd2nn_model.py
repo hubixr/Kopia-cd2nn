@@ -22,9 +22,9 @@ WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.15  # [m]
-NUM_LAYERS = 5
+NUM_LAYERS = 1
 EPOCHS = 3000
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.1
 BATCH_SIZE = 16
 CALLBACK_PATIENCE = 10
 DATA_DIR = Path("./cdnn_data")
@@ -52,35 +52,34 @@ else:
 # FUNKCJE POMOCNICZE
 # ================================
 
-# Function to rescale and crop a .bmp file to match DOE_SHAPE
+"""# Function to rescale and crop a .bmp file to match DOE_SHAPE
 def rescale_and_crop_bmp(image, target_shape):
     # Ensure the image is resized while maintaining aspect ratio
     image = ImageOps.fit(image, target_shape, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-    return image
+    return image"""
 
-# Update the load_bmp_fields function to use rescale_and_crop_bmp
-def load_bmp_fields(input_dir, shape):
-    files = sorted(input_dir.glob("*.bmp"))
-    inputs = []
-    for f in files:
-        image = Image.open(f).convert('L')  # Convert to grayscale
-        image = rescale_and_crop_bmp(image, shape)  # Rescale and crop to target shape
-        image_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to 0-1
-        inputs.append(image_array)
-    if not inputs:
-        raise ValueError("No valid input fields found in the directory.")
-    return np.stack(inputs, axis=0)
+# Function to load .bmp file and preprocess it for the model
+def load_bmp_fields(file_path, target_shape):
+    image = Image.open(file_path).convert('L')  # Convert to grayscale
+    image = image.resize(target_shape, Image.Resampling.LANCZOS)  # Resize to target shape using LANCZOS
+    image_array = np.array(image, dtype=np.float32)  # Convert to numpy array
+    image_array = image_array / 255.0  # Normalize to 0-1
+    image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension
+    return image_array
 
 def load_bmp_target_field(target_file, shape):
     image = Image.open(target_file).convert('L')  # Convert to grayscale
     image = image.resize(shape, Image.Resampling.LANCZOS)  # Resize to target shape
     target_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to 0-1
     target_array = np.expand_dims(target_array, axis=0)  # Add batch dimension
+    # Ensure the target array has a channel dimension
+    target_array = np.expand_dims(target_array, axis=-1)  # Add channel dimension
     return target_array
 
-# Add a third channel of zeros to the input fields
+# Modify the input data to have two channels: one with the BMP values and the second filled with zeros
 def add_zero_channel(input_data):
-    zero_channel = np.zeros(input_data.shape[:-1] + (1,), dtype=input_data.dtype)  # Create a channel of zeros
+    zero_channel = np.zeros(input_data.shape + (1,), dtype=input_data.dtype)  # Create a channel of zeros
+    input_data = np.expand_dims(input_data, axis=-1)  # Add a channel dimension to the BMP values
     return np.concatenate((input_data, zero_channel), axis=-1)  # Concatenate along the last axis
 
 # Ensure input data is resized or cropped to (128, 128)
@@ -88,26 +87,35 @@ def crop_or_resize_input(input_data, target_shape):
     cropped_data = input_data[:, :target_shape[0], :target_shape[1]]  # Crop to target shape
     return cropped_data
 
-# Update to load .npy files directly without resizing or cropping
-def load_npy_fields(input_dir):
-    files = sorted(input_dir.glob("*.npy"))
-    inputs = []
-    for f in files:
-        field = np.load(f)  # Load .npy file directly
-        inputs.append(field)
-    if not inputs:
-        raise ValueError("No valid input fields found in the directory.")
-    return np.stack(inputs, axis=0)
+# # Update to load .npy files directly without resizing or cropping
+# def load_npy_fields(input_dir):
+#     files = sorted(input_dir.glob("*.npy"))
+#     inputs = []
+#     for f in files:
+#         field = np.load(f)  # Load .npy file directly
+#         inputs.append(field)
+#     if not inputs:
+#         raise ValueError("No valid input fields found in the directory.")
+#     return np.stack(inputs, axis=0)
 
 # ================================
 # GLOWNA CZESC
 # ================================
 print("Laduję dane wejściowe...")
-input_data = load_npy_fields(INPUT_DIR).astype(np.float32)  # Load .npy files directly
+input_files = sorted(INPUT_DIR.glob("*.bmp"))
+inputs = []
+for f in input_files:
+    image = Image.open(f).convert('L')  # Convert to grayscale
+    image_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to 0-1
+    inputs.append(image_array)
+if not inputs:
+    raise ValueError("No valid input fields found in the directory.")
+input_data = np.stack(inputs, axis=0).astype(np.float32)  # Load .bmp files directly
 
 # Debugging: Print the shape of input_data
 print(f"Input data shape: {input_data.shape}")
 
+# Update the input data processing to include the zero channel
 input_data = add_zero_channel(input_data)
 
 # Debugging: Print the shape of input_data before reshaping
@@ -220,14 +228,19 @@ print(f"Model training time: {end_time - start_time:.2f} seconds")
 # Update file naming to include model parameters
 file_suffix = f"batch_{BATCH_SIZE}layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{opt.learning_rate.numpy()}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"
 
-# Save the best trained phase mask to a folder
+# Save the best trained phase mask to a folder as BMP
 output_dir = Path("best_doe_masks")
 output_dir.mkdir(exist_ok=True)
 for i, layer in enumerate(model.doe_layers):
     phase = layer.phase.numpy()
-    output_file = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}.npy'
-    np.save(output_file, phase)
-    print(f"Saved best trained phase mask for DOE Layer {i + 1} to {output_file}")
+
+    # Normalize phase to range 0-255
+    phase_normalized = ((phase - phase.min()) / (phase.max() - phase.min()) * 255).astype(np.uint8)
+
+    # Save as BMP file
+    output_file_bmp = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}.bmp'
+    Image.fromarray(phase_normalized).save(output_file_bmp)
+    print(f"Saved best trained phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp}")
 
 # Ensure the `saved_histories` directory exists
 history_dir = Path("saved_histories")

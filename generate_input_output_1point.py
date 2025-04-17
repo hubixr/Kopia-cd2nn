@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 from pathlib import Path
 import os as os
+from PIL import Image
 
 # Parametry przestrzeni
 H, W = 128, 128
@@ -24,8 +25,11 @@ def generate_gaussian_targets(filename):
 
     gaussian_map /= gaussian_map.max()  # Normalize to [0, 1]
 
+    # Save the Gaussian map as a grayscale BMP file
+    bmp_filename = filename.with_suffix('.bmp')
+    plt.imsave(bmp_filename, gaussian_map, cmap='gray')
+    print(f"Saved Gaussian map as grayscale BMP to {bmp_filename}")
 
-    np.save(filename, gaussian_map)
     plt.imshow(gaussian_map, cmap='hot', extent=[x[0], x[-1], y[0], y[-1]])
     plt.title("Target Gaussian Spot")
     plt.colorbar()
@@ -38,7 +42,7 @@ def generate_thz_inputs(folder, num_samples=200):
 
     for i in range(num_samples):
         # Kolimowana wiązka THz modelowana jako Gauss z lekkim odchyleniem
-        waist = np.random.uniform(20, 30)  # mm
+        waist = np.random.uniform(25, 35)  # mm
         x0 = np.random.uniform(-10, 10)    # mm
         y0 = np.random.uniform(-10, 10)
         theta = np.random.uniform(-0.05, 0.05)  # nachylenie fazy w rad/mm
@@ -47,23 +51,41 @@ def generate_thz_inputs(folder, num_samples=200):
         phase = theta * X
         field = amp * np.exp(1j * phase)
 
+        # # Resize the field to fit within H, W
+        # field_resized = np.zeros((H, W), dtype=np.complex64)
+        # start_x = (H - field.shape[0]) // 2
+        # start_y = (W - field.shape[1]) // 2
+        # field_resized[start_x:start_x + field.shape[0], start_y:start_y + field.shape[1]] = field
+        # field = field_resized
+
         U = np.stack([np.real(field), np.imag(field)], dtype=np.float32, axis=-1)
         U[U < 0] = 0
         
-        np.save(folder / f"field_{i:04d}.npy", U)
+        # Removed saving as .npy file
+        # np.save(folder / f"field_{i:04d}.npy", U)
+
+        # Save the THz input field as a grayscale BMP file
+        bmp_filename = folder / f"field_{i:04d}.bmp"
+        plt.imsave(bmp_filename, np.abs(field), cmap='gray')
+        print(f"Saved THz input field {i} as grayscale BMP to {bmp_filename}")
+
     print("umin=", U.min())
 if __name__ == "__main__":
     os.makedirs("./cdnn_data", exist_ok=True)
     output_folder = Path("./cdnn_data")
-    generate_gaussian_targets(output_folder / "target_field.npy")
+    generate_gaussian_targets(output_folder / "target_field")
     generate_thz_inputs(output_folder / "input_fields")
 
     # Visualize the first 10 inputs and targets on one graph
     input_folder = output_folder / "input_fields"
-    target_file = output_folder / "target_field.npy"
+    target_file = output_folder / "target_field.bmp"
 
-    # Load the target field
-    target_field = np.load(target_file)
+    # Update to load the target field from the BMP file instead of .npy
+    bmp_target_file = output_folder / "target_field.bmp"
+    target_field = plt.imread(bmp_target_file)  # Load BMP file as an array
+
+    # Normalize the target field to [0, 1] if needed
+    target_field = target_field / 255.0 if target_field.max() > 1 else target_field
 
     # # Plot the target field
     plt.figure(figsize=(15, 10))
@@ -74,14 +96,14 @@ if __name__ == "__main__":
 
     # Plot the first 10 input fields
     for i in range(10):
-        input_field = np.load(input_folder / f"field_{i:04d}.npy")
-        real_part = input_field[..., 0]
-        imag_part = input_field[..., 1]
+        bmp_input_file = input_folder / f"field_{i:04d}.bmp"
+        input_field = Image.open(bmp_input_file).convert('L')  # Load BMP file as grayscale
+        input_field = np.array(input_field, dtype=np.float32) / 255.0  # Normalize to [0, 1]
 
-        # Real part
+        # Plot the input field
         plt.subplot(3, 4, i + 2)
-        plt.imshow(real_part, cmap='viridis', extent=[x[0], x[-1], y[0], y[-1]])
-        plt.title(f"Input Field {i} - Real Part")
+        plt.imshow(input_field, cmap='viridis', extent=[x[0], x[-1], y[0], y[-1]])
+        plt.title(f"Input Field {i}")
         plt.colorbar()
 
     plt.tight_layout()

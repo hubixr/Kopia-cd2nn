@@ -43,12 +43,12 @@ def generate_gaussian_targets(filename):
     print(f"Target saved as grayscale BMP: {bmp_filename}")
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=1000):
+def generate_thz_inputs(folder, num_samples=200):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):
         # Kolimowana wiązka THz modelowana jako Gauss z lekkim odchyleniem
-        waist = np.random.uniform(20, 30)  # mm
+        waist = np.random.uniform(25, 35)  # mm
         x0 = np.random.uniform(-10, 10)    # mm
         y0 = np.random.uniform(-10, 10)
         theta = np.random.uniform(-0.05, 0.05)  # nachylenie fazy w rad/mm
@@ -57,9 +57,23 @@ def generate_thz_inputs(folder, num_samples=1000):
         phase = theta * X
         field = amp * np.exp(1j * phase)
 
+        # # Resize the field to fit within H, W
+        # field_resized = np.zeros((H, W), dtype=np.complex64)
+        # start_x = (H - field.shape[0]) // 2
+        # start_y = (W - field.shape[1]) // 2
+        # field_resized[start_x:start_x + field.shape[0], start_y:start_y + field.shape[1]] = field
+        # field = field_resized
+
         U = np.stack([np.real(field), np.imag(field)], dtype=np.float32, axis=-1)
         U[U < 0] = 0
-        np.save(folder / f"field_{i:04d}.npy", U)
+        
+        # Removed saving as .npy file
+        # np.save(folder / f"field_{i:04d}.npy", U)
+
+        # Save the THz input field as a grayscale BMP file
+        bmp_filename = folder / f"field_{i:04d}.bmp"
+        plt.imsave(bmp_filename, np.abs(field), cmap='gray')
+        print(f"Saved THz input field {i} as grayscale BMP to {bmp_filename}")
 
 if __name__ == "__main__":
     os.makedirs("./cdnn_data", exist_ok=True)
