@@ -42,7 +42,7 @@ def generate_thz_inputs(folder, num_samples=500):
 
     for i in range(num_samples):
         # Kolimowana wiązka THz modelowana jako Gauss z lekkim odchyleniem
-        waist = np.random.uniform(25, 35)  # mm
+        waist = np.random.uniform(15, 25)  # mm
         x0 = np.random.uniform(-10, 10)    # mm
         y0 = np.random.uniform(-10, 10)
         theta = np.random.uniform(-0.05, 0.05)  # nachylenie fazy w rad/mm
