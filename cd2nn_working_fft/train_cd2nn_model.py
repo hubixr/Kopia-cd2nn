@@ -16,17 +16,17 @@ from PIL import ImageOps
 # ================================
 DOE_SHAPE = (128, 128)  # [px]
 PIXEL_SIZE = 9e-4  # [m]
-FREQUENCY = 180 * 1e9  # [GHz]
+FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
-PROPAGATION_DISTANCE_TO_TARGET = 0.15  # [m]
+PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 3000
-LEARNING_RATE = 0.1
-BATCH_SIZE = 16
-CALLBACK_PATIENCE = 10
+EPOCHS = 2000
+LEARNING_RATE = 0.01
+BATCH_SIZE = 2
+CALLBACK_PATIENCE = 20
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
@@ -225,8 +225,12 @@ history = model.fit(train_dataset, validation_data=val_dataset, epochs=EPOCHS, c
 end_time = time.time()
 print(f"Model training time: {end_time - start_time:.2f} seconds")
 
+print("Ocena modelu na zbiorze testowym:")
+evaluation_results = model.evaluate(test_dataset)
+print(evaluation_results)
+
 # Update file naming to include model parameters
-file_suffix = f"batch_{BATCH_SIZE}layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{opt.learning_rate.numpy()}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"
+file_suffix = f"psnr_{evaluation_results[1]}_batch_{BATCH_SIZE}layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"
 
 # Save the best trained phase mask to a folder as BMP
 output_dir = Path("best_doe_masks")
@@ -363,8 +367,4 @@ print("Plotted 5 inputs and outputs.")
 print("Zapisuję model...")
 model.save('cdnn_model_v2.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
-print("Ocena modelu na zbiorze testowym:")
-print(model.evaluate(test_dataset))
-print("długość train dataset:", len(train_dataset))
-print("długość val dataset:", len(val_dataset))
-print("długość test dataset:", len(test_dataset))
+
