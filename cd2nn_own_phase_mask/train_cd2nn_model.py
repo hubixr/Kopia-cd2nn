@@ -14,12 +14,12 @@ from PIL import Image
 # ================================
 DOE_SHAPE = (128, 128)
 PIXEL_SIZE = 9e-4  # [m]
-FREQUENCY = 300 * 1e9  # [GHz]
+FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
-PROPAGATION_DISTANCE_TO_TARGET = 0.1 # [m]
+PROPAGATION_DISTANCE_TO_TARGET = 0.2 # [m]
 NUM_LAYERS = 1
 EPOCHS = 2000
 
@@ -256,9 +256,10 @@ for i in range(NUM_LAYERS):
 plt.tight_layout()
 plt.savefig('cdnn_sample_outputs_v2_with_phase_and_target.png')
 plt.close()"""
-
+distance_in_mm = PROPAGATION_DISTANCE_TO_TARGET * 1000
+frequency_in_GHz = FREQUENCY / 1e9
 # Load and preprocess the input plane and phase mask from .bmp files
-input_plane_path = "validation_data_lenses/input/Input_px_0.9mm_size_128_frequency300GHz_f_100mm.bmp"  # Replace with the actual path to your input plane .bmp file
+input_plane_path = "validation_data_lenses/input/Input_px_0.9mm_size_128_frequency96GHz_f_200mm.bmp"  # Replace with the actual path to your input plane .bmp file
 
 
 # Load input plane
