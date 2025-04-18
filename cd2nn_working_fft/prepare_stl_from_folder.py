@@ -16,7 +16,7 @@ matrix_size = (128, 128)  # px
 matrix_center = (matrix_size[0] / 2, matrix_size[1] / 2)  # Center of the matrix
 
 # Ensure lens diameter and other parameters are adjusted accordingly
-lens_diameter = 150  # mm (unchanged, but ensure compatibility with new matrix size)
+lens_diameter = 170  # mm (unchanged, but ensure compatibility with new matrix size)
 
 # Update sampling to match the new resolution
 sampling = 900  # um (unchanged, but ensure compatibility with new matrix size)
@@ -37,7 +37,7 @@ holder_lenght_px = holder_lenght_mm*sampling/1000
 holder_width_px = holder_width_mm*sampling/1000
 
 # Update the path to the BMP file to match the provided path
-path = Path("/workspace/CD2NN-for-THz/cd2nn_working_fft/best_doe_masks/doe.bmp")
+path = Path("/workspace/CD2NN-for-THz/cd2nn_working_fft/best_doe_masks/best_trained_doe_phase_1_freq_96.000GHz_batch_1_layers_1_epochs_1000_lr_0.001_dist_doe_0.050_dist_target_0.200_doe_shape_128x128")
 
 h_max = wavelenght/(n1-n0)         #mm
 print(f'h_max = {h_max}')

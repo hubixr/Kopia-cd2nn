@@ -23,7 +23,7 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 2
+EPOCHS = 1000
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 10
@@ -198,6 +198,7 @@ opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipn
 # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lambda epoch: 1e-4 * 10**(epoch/20))
 
 def psnr_metric(y_true, y_pred):
+    y_pred = tf.expand_dims(y_pred, axis=-1)  # Add channel dimension
     return tf.image.psnr(y_true, y_pred, max_val=1.0)
 
 # Replace accuracy with PSNR in the model compilation
@@ -230,7 +231,8 @@ evaluation_results = model.evaluate(test_dataset)
 print(evaluation_results)
 
 # Update file naming to include model parameters
-file_suffix = f"freq_{FREQUENCY/1e9:.3f}GHz_batch_{BATCH_SIZE}_layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
+psnr_value = evaluation_results[1]  # Assuming PSNR is the second metric in evaluation_results
+file_suffix = f"PSNR_{psnr_value:.2f}_freq_{FREQUENCY/1e9:.3f}GHz_batch_{BATCH_SIZE}_layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
 
 # Save the best trained phase mask to a folder as BMP
 output_dir = Path("best_doe_masks")
@@ -279,14 +281,11 @@ plt.xlabel('Epochs')
 plt.ylabel('PSNR (dB)')
 plt.legend()
 
-# Display the graph
-plt.tight_layout()
-plt.show()
-
-# Save the graph
+# Save the graph to a file
 history_graph_file = f"saved_histories/history_graph_{file_suffix}_{time.strftime('%Y-%m-%d')}.png"
+plt.tight_layout()
 plt.savefig(history_graph_file)
-plt.close()
+plt.close()  # Close the plot to avoid displaying it
 print(f"Training history graph saved to {history_graph_file}")
 
 # ================================
