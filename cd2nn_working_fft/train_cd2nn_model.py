@@ -23,10 +23,10 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 2000
-LEARNING_RATE = 0.01
+EPOCHS = 2
+LEARNING_RATE = 0.003
 BATCH_SIZE = 1
-CALLBACK_PATIENCE = 20
+CALLBACK_PATIENCE = 10
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
@@ -230,7 +230,7 @@ evaluation_results = model.evaluate(test_dataset)
 print(evaluation_results)
 
 # Update file naming to include model parameters
-file_suffix = f"psnr_{evaluation_results[1]}_batch_{BATCH_SIZE}layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_wavelength_{WAVELENGTH}"
+file_suffix = f"freq_{FREQUENCY/1e9:.3f}GHz_batch_{BATCH_SIZE}_layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
 
 # Save the best trained phase mask to a folder as BMP
 output_dir = Path("best_doe_masks")
