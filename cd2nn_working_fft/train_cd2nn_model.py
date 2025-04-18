@@ -20,13 +20,13 @@ FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
-PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
-EPOCHS = 1000
+NUM_LAYERS = 2
+EPOCHS = 50
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
-CALLBACK_PATIENCE = 10
+CALLBACK_PATIENCE = 3
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
@@ -364,6 +364,6 @@ print("Plotted 5 inputs and outputs.")
 # ZAPIS MODELU
 # ================================
 print("Zapisuję model...")
-model.save('cdnn_model_v2.keras')
+model.save(f'cd2nn_model_{file_suffix}.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
 
