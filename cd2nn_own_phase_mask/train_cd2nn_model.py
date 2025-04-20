@@ -264,7 +264,7 @@ input_plane_path = "validation_data_lenses/input/Input_px_0.9mm_size_128_frequen
 
 # Load input plane
 input_plane = load_bmp_as_input(input_plane_path, DOE_SHAPE)  # Preprocess to match model input shape
-
+print("input_plane shape:", input_plane.shape)
 
 
 # Create the input tensor with real and imaginary parts
@@ -278,9 +278,10 @@ print("imaginary_part min:", np.min(imaginary_part))
 print("imaginary_part max:", np.max(imaginary_part))
 input_tensor = np.stack([real_part, imaginary_part], axis=-1)  # Shape: [H, W, 2]
 input_tensor = np.expand_dims(input_tensor, axis=0)  # Add batch dimension, Shape: [1, H, W, 2]
-
+print("input_tensor shape:", input_tensor.shape)
 # Pass the input tensor through the model
 output = model(input_tensor).numpy()
+# model.summary()
 
 # Visualize the output and save to file
 plt.imshow(output[0], cmap='hot')

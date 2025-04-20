@@ -26,7 +26,7 @@ NUM_LAYERS = 2
 EPOCHS = 50
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
-CALLBACK_PATIENCE = 3
+CALLBACK_PATIENCE = 5
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
@@ -74,6 +74,7 @@ def load_bmp_target_field(target_file, shape):
     target_array = np.expand_dims(target_array, axis=0)  # Add batch dimension
     # Ensure the target array has a channel dimension
     target_array = np.expand_dims(target_array, axis=-1)  # Add channel dimension
+    print("target_array shape:", target_array.shape)
     return target_array
 
 # Modify the input data to have two channels: one with the BMP values and the second filled with zeros
@@ -140,6 +141,7 @@ print("Laduję target...")
 target_data = load_bmp_target_field(TARGET_FILE, DOE_SHAPE).astype(np.float32)
 num_samples = input_data.shape[0]
 targets = np.repeat(target_data, num_samples, axis=0)
+print("targets shape", targets.shape)
 
 # ================================
 # PODZIAŁ NA ZBIORY
@@ -241,13 +243,14 @@ for i, layer in enumerate(model.doe_layers):
     phase = layer.phase.numpy()
 
     # Normalize phase to range 0-255
-    phase_normalized = ((phase - phase.min()) / (phase.max() - phase.min()) * 255).astype(np.uint8)
+    phase_normalized = (phase/(2*np.pi)*255).astype(np.uint8)
 
     # Save as BMP file
     output_file_bmp = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}.bmp'
     Image.fromarray(phase_normalized).save(output_file_bmp)
     print(f"Saved best trained phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp}")
 
+print("LICZBA WARSTW:", len(model.doe_layers))
 # Ensure the `saved_histories` directory exists
 history_dir = Path("saved_histories")
 history_dir.mkdir(exist_ok=True)
@@ -321,7 +324,10 @@ for i in range(len(model.doe_layers)):
 
     # Use phase directly from the model instead of loading from a file
     phase = model.doe_layers[i].phase.numpy()
-    im2 = axes[2, i].imshow(phase, cmap='gray', vmin=0, vmax=2 * np.pi)
+    phase = (phase/(2*np.pi)*255).astype(np.uint8)
+    print("phsae min:", phase.min())
+    print("phase max:", phase.max())
+    im2 = axes[2, i].imshow(phase, cmap='gray', vmin=0, vmax=255)
     axes[2, i].set_title(f'DOE Phase {i + 1}')
     axes[2, i].axis('off')
     plt.colorbar(im2, ax=axes[2, i], fraction=0.046, pad=0.04)

@@ -30,7 +30,7 @@ Contains only the transformation of the field due to the DOE element.
 Input: tensor [B, H, W, 2] (Re, Im).
 Output: tensor [B, H, W, 2] (Re, Im).
 """
-phase_mask_path = "validation_data_lenses/phase_mask/lens_px_0.9mm_size_128_frequency96GHz_f_200mm.bmp"  
+phase_mask_path = "validation_data_lenses/phase_mask/doe1.bmp"  
 
 # Currently, the phase is initialized randomly, but it can be replaced with a constant value.
 def load_bmp_as_input(file_path, target_shape):
@@ -41,7 +41,7 @@ def load_bmp_as_input(file_path, target_shape):
     print("image_array min before normalization:", np.min(image_array))
     print("image_array max before normalization:", np.max(image_array))
     image_array = (image_array / 255.0) * 2 * np.pi  # Normalize to 0-2π
-    image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension
+    # image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension
     print("image_array shape:", image_array.shape)
     print("image_array min:", np.min(image_array))
     print("image_array max:", np.max(image_array))
@@ -73,7 +73,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
 
         # Ensure phase is properly managed by TensorFlow
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
-
+        print("phase shape:", phase.shape)
         # Apply phase modulation
         if im_u is None:
             out_real = re_u * tf.cos(phase)

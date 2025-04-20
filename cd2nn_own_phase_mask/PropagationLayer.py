@@ -72,5 +72,6 @@ class PropagationLayer(tf.keras.layers.Layer):
 
         print("out real shape", out_real.shape)
         print("out imag shape", out_imag.shape)
+        print("ZZZZ propagation layer ZZZZZ shape", tf.stack([out_real, out_imag], axis=-1).shape)
 
         return tf.stack([out_real, out_imag], axis=-1)

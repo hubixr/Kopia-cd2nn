@@ -99,5 +99,8 @@ class PropagationLayer(tf.keras.layers.Layer):
 
         # print("Min and max of out_real:", tf.reduce_min(out_real), tf.reduce_max(out_real))
         # print("Min and max of out_imag:", tf.reduce_min(out_imag), tf.reduce_max(out_imag))
+        print("Output real shape:", out_real.shape)
+        print("Output imaginary shape:", out_imag.shape)
+        print("output shape:", tf.stack([out_real, out_imag], axis=-1).shape)
 
         return tf.stack([out_real, out_imag], axis=-1)

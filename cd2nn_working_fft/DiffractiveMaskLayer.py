@@ -51,7 +51,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
     
         # Ensure phase is properly managed by TensorFlow
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
-
+        print("phase shape:", phase.shape)
         # Apply phase modulation
         if im_u is None:
             out_real = re_u * tf.cos(phase)
