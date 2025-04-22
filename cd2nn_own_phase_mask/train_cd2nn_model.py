@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from cd2nn_model import CDNNModel
 import time
-from tensorflow.keras import mixed_precision
+# from tensorflow.keras import mixed_precision
 from PIL import Image
 
 # mixed_precision.set_global_policy('float32')

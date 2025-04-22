@@ -43,12 +43,12 @@ def generate_gaussian_targets(filename):
     print(f"Target saved as grayscale BMP: {bmp_filename}")
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=200):
+def generate_thz_inputs(folder, num_samples=2000):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):
         # Kolimowana wiązka THz modelowana jako Gauss z lekkim odchyleniem
-        waist = np.random.uniform(25, 35)  # mm
+        waist = np.random.uniform(22, 27)  # mm
         x0 = np.random.uniform(-10, 10)    # mm
         y0 = np.random.uniform(-10, 10)
         theta = np.random.uniform(-0.05, 0.05)  # nachylenie fazy w rad/mm
