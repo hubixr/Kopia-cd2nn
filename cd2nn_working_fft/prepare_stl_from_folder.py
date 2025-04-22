@@ -37,7 +37,7 @@ holder_lenght_px = holder_lenght_mm*sampling/1000
 holder_width_px = holder_width_mm*sampling/1000
 
 # Update the path to the BMP file to match the provided path
-path = Path("./best_doe_masks/best_trained_doe_phase_1_freq_96.000GHz_batch_1_layers_1_epochs_1000_lr_0.001_dist_doe_0.050_dist_target_0.200_doe_shape_128x128")
+path = Path("./best_doe_masks/")
 
 h_max = wavelenght/(n1-n0)         #mm
 print(f'h_max = {h_max}')
@@ -50,7 +50,7 @@ output_folder = Path("./stl_models")
 output_folder.mkdir(exist_ok=True)  # Create the folder if it doesn't exist
 
 # Iterate over all BMP files in the folder
-for bmp_file in Path(".pip install numpy-stl/best_doe_masks").glob("*.bmp"):
+for bmp_file in Path("./best_doe_masks").glob("*.bmp"):
     print(f"Processing {bmp_file}...")
     obrazek = cv2.imread(str(bmp_file), cv2.IMREAD_GRAYSCALE)
 

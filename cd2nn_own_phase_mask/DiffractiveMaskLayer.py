@@ -30,7 +30,7 @@ Contains only the transformation of the field due to the DOE element.
 Input: tensor [B, H, W, 2] (Re, Im).
 Output: tensor [B, H, W, 2] (Re, Im).
 """
-phase_mask_path = "validation_data_lenses/phase_mask/doe1.bmp"  
+phase_mask_path = "validation_data_lenses/phase_mask/lens_px_0.9mm_size_128_frequency180GHz_f_100mm.bmp"  
 
 # Currently, the phase is initialized randomly, but it can be replaced with a constant value.
 def load_bmp_as_input(file_path, target_shape):
