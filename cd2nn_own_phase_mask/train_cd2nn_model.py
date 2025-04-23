@@ -14,12 +14,12 @@ from PIL import Image
 # ================================
 DOE_SHAPE = (128, 128)
 PIXEL_SIZE = 9e-4  # [m]
-FREQUENCY = 180 * 1e9  # [GHz]
+FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
-PROPAGATION_DISTANCE_TO_TARGET = 0.1 # [m]
+PROPAGATION_DISTANCE_TO_TARGET = 0.2 # [m]
 NUM_LAYERS = 1
 EPOCHS = 2000
 
