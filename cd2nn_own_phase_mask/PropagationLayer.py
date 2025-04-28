@@ -66,9 +66,9 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = re_re - im_im
         out_imag = re_im + im_re
 
-        # Normalize the outputs
-        out_real = out_real / tf.reduce_max(out_real)
-        out_imag = out_imag / tf.reduce_max(out_imag)
+        # # Normalize the outputs
+        # out_real = out_real / tf.reduce_max(out_real)
+        # out_imag = out_imag / tf.reduce_max(out_imag)
 
         print("out real shape", out_real.shape)
         print("out imag shape", out_imag.shape)

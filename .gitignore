@@ -2,3 +2,4 @@
 *.pb
 logs/
 *.npy
+input_fields/

@@ -302,3 +302,35 @@ print(model.evaluate(test_dataset))
 print("długość train dataset:", len(train_dataset))
 print("długość val dataset:", len(val_dataset))
 print("długość test dataset:", len(test_dataset))"""
+
+# Function to calculate optical power of an image
+# Optical power is proportional to the sum of squared pixel intensities
+def calculate_optical_power(image_array):
+    return np.sum(image_array**2)
+
+# Calculate and compare power loss between input and output during evaluation
+def calculate_power_loss(input_data, output_data):
+    input_power = calculate_optical_power(input_data)
+    output_power = calculate_optical_power(output_data)
+    power_loss = input_power - output_power
+    power_loss_ratio = (power_loss / input_power) * 100  # Percentage loss
+    return input_power, output_power, power_loss, power_loss_ratio
+
+# ================================
+# Calculate power before normalization
+# ================================
+print("Calculating power before normalization...")
+input_power = calculate_optical_power(real_part)
+print(f"Input Power = {input_power:.2f}")
+
+# Denormalize the output before calculating power
+output_denormalized = output[0] * 255.0  # Assuming the output was normalized to 0-1
+
+# Calculate power after denormalization
+output_power = calculate_optical_power(output_denormalized)
+print(f"Output Power (Denormalized) = {output_power:.2f}")
+
+# Compare power loss
+power_loss = input_power - output_power
+power_loss_ratio = (power_loss / input_power) * 100
+print(f"Power Loss = {power_loss:.2f}, Power Loss Ratio = {power_loss_ratio:.2f}%")

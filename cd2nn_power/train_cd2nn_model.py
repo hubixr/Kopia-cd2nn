@@ -23,7 +23,7 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 500
+EPOCHS = 5
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 5
@@ -61,7 +61,7 @@ def rescale_and_crop_bmp(image, target_shape):
 # Function to load .bmp file and preprocess it for the model
 def load_bmp_fields(file_path, target_shape):
     image = Image.open(file_path).convert('L')  # Convert to grayscale
-    image = image.resize(target_shape, Image.Resampling.LANCZOS)  # Resize to target shape using LANCZOS
+    # image = image.resize(target_shape, Image.Resampling.LANCZOS)  # Resize to target shape using LANCZOS
     image_array = np.array(image, dtype=np.float32)  # Convert to numpy array
     image_array = image_array / 255.0  # Normalize to 0-1
     image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension
@@ -107,6 +107,7 @@ input_files = sorted(INPUT_DIR.glob("*.bmp"))
 inputs = []
 for f in input_files:
     image = Image.open(f).convert('L')  # Convert to grayscale
+    image = image.resize(DOE_SHAPE, Image.Resampling.LANCZOS)  # Resize to match DOE_SHAPE
     image_array = np.array(image, dtype=np.float32) / 255.0  # Normalize to 0-1
     inputs.append(image_array)
 if not inputs:
@@ -203,7 +204,17 @@ def psnr_metric(y_true, y_pred):
     y_pred = tf.expand_dims(y_pred, axis=-1)  # Add channel dimension
     return tf.image.psnr(y_true, y_pred, max_val=1.0)
 
-# Replace accuracy with PSNR in the model compilation
+# Custom loss function to balance amplitude loss and amplitude difference
+
+def custom_loss(y_true, y_pred):
+    # Calculate input optical power
+    input_power = tf.reduce_sum(y_true, axis=[1, 2])  # Sum over spatial dimensions
+    output_power = tf.reduce_sum(y_pred, axis=[1, 2])  # Sum over spatial dimensions
+    power_loss = tf.abs(output_power - input_power)
+    return tf.reduce_mean(power_loss)  # Return mean normalized power loss
+
+
+# Compile the model with the updated custom loss function
 model.compile(optimizer=opt, loss=loss_fn, metrics=[psnr_metric])
 # mixed_precision.set_global_policy('mixed_float16')
 
@@ -365,7 +376,31 @@ plt.tight_layout()
 plt.savefig(f"sample_outputs/inputs_outputs_plot_{file_suffix}.png")
 plt.close()
 print("Plotted 5 inputs and outputs.")
-    
+
+
+# Function to calculate optical power of an image
+# Optical power is proportional to the sum of squared pixel intensities
+def calculate_optical_power(image_array):
+    return np.sum(image_array)
+
+# Calculate and compare power loss between input and output during evaluation
+def calculate_power_loss(input_data, output_data):
+    input_power = calculate_optical_power(input_data)
+    output_power = calculate_optical_power(output_data)
+    power_loss = input_power - output_power
+    power_loss_ratio = (power_loss / input_power) * 100  # Percentage loss
+    return input_power, output_power, power_loss, power_loss_ratio
+
+# ================================
+# WIZUALIZACJA WYNIKÓW + FAZY DOE
+# ================================
+# Add power comparison during visualization
+print("Calculating power loss...")
+for i in range(len(x_test)):
+    input_power, output_power, power_loss, power_loss_ratio = calculate_power_loss(x_test[i, :, :, 0], output_amplitude[i])
+    print(f"Sample {i + 1}: Input Power = {input_power:.2f}, Output Power = {output_power:.2f}, Power Loss = {power_loss:.2f}, Power Loss Ratio = {power_loss_ratio:.2f}%")
+
+
 # ================================
 # ZAPIS MODELU
 # ================================

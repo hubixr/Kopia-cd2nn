@@ -102,5 +102,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         print("Output real shape:", out_real.shape)
         print("Output imaginary shape:", out_imag.shape)
         print("output shape:", tf.stack([out_real, out_imag], axis=-1).shape)
+        # Check for NaN or Inf in the outputs using TensorFlow operations
+        # tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real")
+        # tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag")
 
         return tf.stack([out_real, out_imag], axis=-1)
