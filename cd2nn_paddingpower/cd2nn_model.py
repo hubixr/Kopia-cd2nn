@@ -49,6 +49,16 @@ class CDNNModel(tf.keras.Model):
 
 
     def call(self, inputs):
+        # Generate plane wave with apertures of random diameters
+        aperture_diameter = tf.random.uniform([], minval=40, maxval=128, dtype=tf.int32)
+        center = (self.shape_[0] // 2, self.shape_[1] // 2)
+        y, x = tf.meshgrid(tf.range(self.shape_[0]), tf.range(self.shape_[1]), indexing='ij')
+        mask = tf.square(x - center[1]) + tf.square(y - center[0]) <= tf.square(aperture_diameter // 2)
+        mask = tf.cast(mask, tf.float32)
+
+        # Apply the aperture mask to the input field
+        inputs = inputs * mask[..., tf.newaxis]
+
         field = inputs
 
         for i, (doe, prop) in enumerate(zip(self.doe_layers, self.prop_layers)):
@@ -59,8 +69,7 @@ class CDNNModel(tf.keras.Model):
         U_imag = field[..., 1]
         U_complex = tf.complex(U_real, U_imag)
         intensity = tf.square(U_complex)  # intensity = |U|^2
-        amplitude = tf.cast(tf.sqrt(intensity),dtype=tf.float32) #/ tf.reduce_max(tf.sqrt(intensity))  # Amplitude normalization
-        # print("AAmplitude shape",amplitude.shape)
+        amplitude = tf.cast(tf.sqrt(intensity), dtype=tf.float32)
         amplitude = amplitude / tf.reduce_max(amplitude)  # Normalize amplitude
         print(
             "Amplitude min:", tf.reduce_min(amplitude),
@@ -68,4 +77,4 @@ class CDNNModel(tf.keras.Model):
             "mean:", tf.reduce_mean(amplitude)
         )
 
-        return amplitude  
+        return amplitude

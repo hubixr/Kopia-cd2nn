@@ -41,35 +41,26 @@ def generate_thz_inputs(folder, num_samples=1000):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):
-        # Kolimowana wiązka THz modelowana jako Gauss z lekkim odchyleniem
-        waist = np.random.uniform(40, 120) / (2 * np.sqrt(2 * np.log(2))) * px_size_mm  # Set waist to random diameter in range 10-120px
-        x0 = np.random.uniform(-5, 5)    # mm
-        y0 = np.random.uniform(-5, 5)
-        theta = 0  # nachylenie fazy w rad/mm
+        # Plane wave with apertures of random diameters between 40 and 128px
+        diameter_px = np.random.randint(100, 180)  # Random diameter in pixels
+        radius_px = diameter_px // 2
 
-        amp = np.exp(-((X - x0)**2 + (Y - y0)**2) / (2 * waist**2))
-        phase = theta * X
-        field = amp * np.exp(1j * phase)
+        # Create a circular aperture mask
+        aperture_mask = np.zeros((H, W), dtype=np.float32)
+        center_x, center_y = W // 2, H // 2
+        y_indices, x_indices = np.ogrid[:H, :W]
+        distance_from_center = np.sqrt((x_indices - center_x)**2 + (y_indices - center_y)**2)
+        aperture_mask[distance_from_center <= radius_px] = 1
 
-        # # Resize the field to fit within H, W
-        # field_resized = np.zeros((H, W), dtype=np.complex64)
-        # start_x = (H - field.shape[0]) // 2
-        # start_y = (W - field.shape[1]) // 2
-        # field_resized[start_x:start_x + field.shape[0], start_y:start_y + field.shape[1]] = field
-        # field = field_resized
-
-        U = np.stack([np.real(field), np.imag(field)], dtype=np.float32, axis=-1)
-        U[U < 0] = 0
-        
-        # Removed saving as .npy file
-        # np.save(folder / f"field_{i:04d}.npy", U)
+        # Plane wave field
+        field = aperture_mask
 
         # Save the THz input field as a grayscale BMP file
         bmp_filename = folder / f"field_{i:04d}.bmp"
-        plt.imsave(bmp_filename, np.abs(field), cmap='gray')
+        plt.imsave(bmp_filename, field, cmap='gray')
         print(f"Saved THz input field {i} as grayscale BMP to {bmp_filename}")
 
-    print("umin=", U.min())
+    print("umin=", field.min())
 if __name__ == "__main__":
     os.makedirs("./cdnn_data", exist_ok=True)
     output_folder = Path("./cdnn_data")

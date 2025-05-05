@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-
+from PIL import Image
 """
 DiffractiveMaskLayer: A TensorFlow custom layer representing a diffractive optical element (DOE).
 
@@ -23,6 +23,22 @@ Inputs:
 Outputs:
 - Tensor of shape `[B, H, W, 2]` representing the modulated complex field (real and imaginary parts).
 """
+phase_mask_path = "validation_data_lenses/phase_mask/lens_px_0.9mm_size_128_frequency96GHz_f_200mm.bmp"  
+
+# Currently, the phase is initialized randomly, but it can be replaced with a constant value.
+def load_bmp_as_input(file_path, target_shape):
+    image = Image.open(file_path).convert('L')  # Convert to grayscale
+    image = image.resize(target_shape, Image.Resampling.LANCZOS)  # Resize to target shape using LANCZOS
+    image_array = np.array(image, dtype=np.float32)  # Convert to numpy array
+    print("image_array shape before normalization:", image_array.shape)
+    print("image_array min before normalization:", np.min(image_array))
+    print("image_array max before normalization:", np.max(image_array))
+    image_array = (image_array / 255.0) * 2 * np.pi  # Normalize to 0-2π
+    # image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension
+    print("image_array shape:", image_array.shape)
+    print("image_array min:", np.min(image_array))
+    print("image_array max:", np.max(image_array))
+    return image_array
 
 class DiffractiveMaskLayer(tf.keras.layers.Layer):
     def __init__(self, shape, name=None):
@@ -31,6 +47,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         # Initialize phase as a trainable weight
+        phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)
         self.phase = self.add_weight(
             name="phase",
             shape=self.shape_,

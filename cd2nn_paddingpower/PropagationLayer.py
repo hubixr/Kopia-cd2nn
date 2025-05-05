@@ -115,9 +115,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = re_re - im_im
         out_imag = re_im + im_re
 
-        power_after = tf.reduce_sum(out_real**2 + out_imag**2)
-        # Replace .numpy() with tf.print for compatibility during graph execution
-        # tf.print("Power after:", tf.reduce_sum(power_after))
+        power_after_convolution = tf.reduce_sum(out_real**2 + out_imag**2)
+        # tf.print("Power after convolutions:", tf.reduce_sum(power_after_convolution))
 
 
         #Crop to original size
@@ -129,6 +128,9 @@ class PropagationLayer(tf.keras.layers.Layer):
         # print("out_imag shape after cropping:", out_imag.shape)
         out_real = tf.squeeze(out_real, axis=-1)
         out_imag = tf.squeeze(out_imag, axis=-1)
+        power_after = tf.reduce_sum(out_real**2 + out_imag**2)
+        # tf.print("Power after cropping:", tf.reduce_sum(power_after))
+        # tf.print("Power loss after cropping:", power_after / power_after_convolution*100)
         # print("out_real shape after squeeze:", out_real.shape)
         # print("out_imag shape after squeeze:", out_imag.shape)
         # # Normalize the outputs
