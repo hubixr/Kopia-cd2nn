@@ -23,7 +23,7 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 5
+EPOCHS = 10
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 2
@@ -209,15 +209,15 @@ def psnr_metric(y_true, y_pred):
 # Custom loss function to balance amplitude loss and amplitude difference
 
 def custom_loss(y_true, y_pred):
-    # Calculate input optical power
-    input_power = tf.reduce_sum(y_true, axis=[1, 2])  # Sum over spatial dimensions
-    output_power = tf.reduce_sum(y_pred, axis=[1, 2])  # Sum over spatial dimensions
-    power_loss = tf.abs(output_power - input_power)
-    return tf.reduce_mean(power_loss)  # Return mean normalized power loss
+    amp_y_true = tf.sqrt(tf.reduce_sum(tf.square(y_true), axis=-1))
+    amp_y_pred = tf.sqrt(tf.reduce_sum(tf.square(y_pred), axis=-1))
+    # Calculate the amplitude loss
+    amp_loss = tf.reduce_mean(tf.square(amp_y_true - amp_y_pred)) / (DOE_SHAPE[0] * DOE_SHAPE[1])
+    return amp_loss  # Return mean normalized power loss
 
 
 # Compile the model with the updated custom loss function
-model.compile(optimizer=opt, loss=loss_fn, metrics=[psnr_metric])
+model.compile(optimizer=opt, loss=custom_loss, metrics=[psnr_metric])
 # mixed_precision.set_global_policy('mixed_float16')
 
 print("Tworzenie datasetów...")

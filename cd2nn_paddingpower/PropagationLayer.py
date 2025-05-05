@@ -43,11 +43,13 @@ class PropagationLayer(tf.keras.layers.Layer):
         r2 = X**2 + Y**2
         k = 2 * np.pi / self.wavelength
         arg = k * self.distance + (np.pi * r2) / (self.wavelength * self.distance)
-        denom = self.wavelength * self.distance
 
         # Compute h_real and h_imag using NumPy
-        h_real = np.sin(arg) / denom
-        h_imag = -np.cos(arg) / denom
+        # h_real = scale * np.cos(arg)
+        # h_imag = scale * np.sin(arg)
+        h = 1/(1j * self.wavelength * self.distance) * np.exp(1j * arg)
+        h_real = np.real(h)
+        h_imag = np.imag(h)
 
         # Apply fftshift to the kernel during initialization
         h_real = np.fft.fftshift(h_real)
@@ -55,6 +57,7 @@ class PropagationLayer(tf.keras.layers.Layer):
 
         print("h_real shape:", h_real.shape)
         print("h_imag shape:", h_imag.shape)
+        
         # Use NumPy arrays for tf.constant_initializer
         self.h_real = self.add_weight(
             name="h_real",
@@ -73,57 +76,74 @@ class PropagationLayer(tf.keras.layers.Layer):
         inputs = tf.cast(inputs, tf.float32)
         re_u = inputs[..., 0]
         im_u = inputs[..., 1]
-        print("re_u shape:", re_u.shape)
-        print("im_u shape:", im_u.shape)
+        power_before = tf.reduce_sum(re_u**2 + im_u**2)
+        # Replace .numpy() with tf.print for compatibility during graph execution
+        # tf.print("Power before:", tf.reduce_sum(power_before))
+        # print("re_u shape:", re_u.shape)
+        # print("im_u shape:", im_u.shape)
         size = int(re_u.shape[1]/2)
-        print("Size of input:", size)
+        # print("Size of input:", size)
         # #Add zero padding
         re_u = tf.expand_dims(re_u, axis=-1)
         im_u = tf.expand_dims(im_u, axis=-1)
-        print("re_u shape after expand_dims:", re_u.shape)
+        # print("re_u shape after expand_dims:", re_u.shape)
         re_u = tf.keras.layers.ZeroPadding2D(padding=(size, size))(re_u)
         im_u = tf.keras.layers.ZeroPadding2D(padding=(size, size))(im_u)
-        print("re_u shape after padding:", re_u.shape)
+        # print("re_u shape after padding:", re_u.shape)
 
         #Delete last dimension
         re_u = tf.squeeze(re_u, axis=-1)
         im_u = tf.squeeze(im_u, axis=-1)
-        print("re_u shape after squeeze:", re_u.shape)
-        print("im_u shape after squeeze:", im_u.shape)
+        # print("re_u shape after squeeze:", re_u.shape)
+        # print("im_u shape after squeeze:", im_u.shape)
         # Perform 4 fft convolutions
         print("Start of convolutions")
-        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real))
-        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag))
-        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_imag))
-        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_real))
-        print("re_re shape:", re_re.shape)
+        # tf.print("h_real min/max:", tf.reduce_min(self.h_real), tf.reduce_max(self.h_real))
+        # tf.print("h_imag min/max:", tf.reduce_min(self.h_imag), tf.reduce_max(self.h_imag))
+        # tf.print("h_real sum:", tf.reduce_sum(self.h_real))
+
+        N = tf.cast(tf.shape(re_u)[1] * tf.shape(re_u)[2], tf.float32)  # szer. * wys.
+        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real)) /N
+        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag)) /N
+        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_imag)) /N
+        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_real)) /N
+        # print("re_re shape:", re_re.shape)
         print("End of convolutions")
+        
         
         # Compute real and imaginary parts of the output
         out_real = re_re - im_im
         out_imag = re_im + im_re
+
+        power_after = tf.reduce_sum(out_real**2 + out_imag**2)
+        # Replace .numpy() with tf.print for compatibility during graph execution
+        # tf.print("Power after:", tf.reduce_sum(power_after))
+
+
         #Crop to original size
         out_real = tf.expand_dims(out_real, axis=-1)
         out_imag = tf.expand_dims(out_imag, axis=-1)
         out_real = tf.keras.layers.Cropping2D(cropping=(size, size))(out_real)
         out_imag = tf.keras.layers.Cropping2D(cropping=(size, size))(out_imag)
-        print("out_real shape after cropping:", out_real.shape)
-        print("out_imag shape after cropping:", out_imag.shape)
+        # print("out_real shape after cropping:", out_real.shape)
+        # print("out_imag shape after cropping:", out_imag.shape)
         out_real = tf.squeeze(out_real, axis=-1)
         out_imag = tf.squeeze(out_imag, axis=-1)
-        print("out_real shape after squeeze:", out_real.shape)
-        print("out_imag shape after squeeze:", out_imag.shape)
+        # print("out_real shape after squeeze:", out_real.shape)
+        # print("out_imag shape after squeeze:", out_imag.shape)
         # # Normalize the outputs
         # out_real = out_real / tf.reduce_max(out_real)
         # out_imag = out_imag / tf.reduce_max(out_imag)
 
         # print("Min and max of out_real:", tf.reduce_min(out_real), tf.reduce_max(out_real))
         # print("Min and max of out_imag:", tf.reduce_min(out_imag), tf.reduce_max(out_imag))
-        print("Output real shape:", out_real.shape)
-        print("Output imaginary shape:", out_imag.shape)
+        # print("Output real shape:", out_real.shape)
+        # print("Output imaginary shape:", out_imag.shape)
         print("output shape:", tf.stack([out_real, out_imag], axis=-1).shape)
         # Check for NaN or Inf in the outputs using TensorFlow operations
         # tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real")
         # tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag")
+        
+        
 
         return tf.stack([out_real, out_imag], axis=-1)

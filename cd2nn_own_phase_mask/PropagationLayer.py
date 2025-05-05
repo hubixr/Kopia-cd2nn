@@ -18,11 +18,9 @@ class PropagationLayer(tf.keras.layers.Layer):
         r2 = X**2 + Y**2
         k = 2 * np.pi / self.wavelength
         arg = k * self.distance + (np.pi * r2) / (self.wavelength * self.distance)
-        denom = self.wavelength * self.distance
-
-        # Compute h_real and h_imag using NumPy
-        h_real = np.sin(arg) / denom
-        h_imag = -np.cos(arg) / denom
+        h = 1/(1j * self.wavelength * self.distance) * np.exp(1j * arg)
+        h_real = np.real(h)
+        h_imag = np.imag(h)
 
         # Apply fftshift to the kernel during initialization
         h_real = np.fft.fftshift(h_real)
