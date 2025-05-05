@@ -68,7 +68,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         )
 
     def call(self, inputs):
-        inputs = tf.cast(inputs, tf.float16)
+        inputs = tf.cast(inputs, tf.float32)
         re_u = inputs[..., 0]
         im_u = inputs[..., 1]
 
