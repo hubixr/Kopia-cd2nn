@@ -56,7 +56,7 @@ class CDNNModel(tf.keras.Model):
             field = prop(field)
 
         intensity = tf.reduce_sum(tf.square(field), axis=-1)  # intensity = |U|^2
-        amplitude = tf.sqrt(intensity) #/ tf.reduce_max(tf.sqrt(intensity))  # Amplitude normalization
+        amplitude = tf.sqrt(intensity)
         print("AAmplitude shape",amplitude.shape)
         amplitude = amplitude / tf.reduce_max(amplitude)  # Normalize amplitude
         print(
