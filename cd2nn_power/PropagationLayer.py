@@ -68,26 +68,17 @@ class PropagationLayer(tf.keras.layers.Layer):
         )
 
     def call(self, inputs):
-        inputs = tf.cast(inputs, tf.float32)  # Cast inputs to float32
+        inputs = tf.cast(inputs, tf.float16)
         re_u = inputs[..., 0]
         im_u = inputs[..., 1]
 
-        # Perform FFT-based convolutions
-        # Commented out unnecessary debug prints, leaving graph-saving functionality intact
-        # print("First convolution")
+        # Perform 4 fft convolutions
+        print("Start of convolutions")
         re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real))
-        # print("First convolution shape:", re_re.shape)
-
-        # print("Second convolution")
         im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag))
-
-        # print("Third convolution")
         re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_imag))
-
-        # print("Fourth convolution")
         im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_real))
-
-        # print("End of convolutions")
+        print("End of convolutions")
 
         # Compute real and imaginary parts of the output
         out_real = re_re - im_im
