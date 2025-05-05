@@ -37,7 +37,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 12288  # Example: 4GB limit
+        memory_limit_mb = 8192  # Example: 4GB limit
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
@@ -201,7 +201,9 @@ opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipn
 # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lambda epoch: 1e-4 * 10**(epoch/20))
 
 def psnr_metric(y_true, y_pred):
-    y_pred = tf.expand_dims(y_pred, axis=-1)  # Add channel dimension
+    # Ensure y_pred has the same shape as y_true by adding a channel dimension if missing
+    if len(y_pred.shape) == 3:  # Check if y_pred is missing the channel dimension
+        y_pred = tf.expand_dims(y_pred, axis=-1)
     return tf.image.psnr(y_true, y_pred, max_val=1.0)
 
 # Custom loss function to balance amplitude loss and amplitude difference
@@ -396,7 +398,7 @@ def calculate_power_loss(input_data, output_data):
 # ================================
 # Add power comparison during visualization
 print("Calculating power loss...")
-for i in range(len(x_test)):
+for i in range(len(output_amplitude)):  # Iterate over the number of samples in output_amplitude
     input_power, output_power, power_loss, power_loss_ratio = calculate_power_loss(x_test[i, :, :, 0], output_amplitude[i])
     print(f"Sample {i + 1}: Input Power = {input_power:.2f}, Output Power = {output_power:.2f}, Power Loss = {power_loss:.2f}, Power Loss Ratio = {power_loss_ratio:.2f}%")
 
@@ -405,6 +407,6 @@ for i in range(len(x_test)):
 # ZAPIS MODELU
 # ================================
 print("Zapisuję model...")
-model.save(f'cd2nn_model_{file_suffix}.keras')
+model.save(f'models/cd2nn_model_{file_suffix}.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
 

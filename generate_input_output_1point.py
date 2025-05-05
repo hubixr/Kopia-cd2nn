@@ -37,12 +37,12 @@ def generate_gaussian_targets(filename):
     plt.close()
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=5000):
+def generate_thz_inputs(folder, num_samples=500):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):
         # Kolimowana wiązka THz modelowana jako Gauss z lekkim odchyleniem
-        waist = np.random.uniform(10, 120) / (2 * np.sqrt(2 * np.log(2))) * px_size_mm  # Set waist to random diameter in range 10-120px
+        waist = np.random.uniform(40, 120) / (2 * np.sqrt(2 * np.log(2))) * px_size_mm  # Set waist to random diameter in range 10-120px
         x0 = np.random.uniform(-10, 10)    # mm
         y0 = np.random.uniform(-10, 10)
         theta = 0  # nachylenie fazy w rad/mm

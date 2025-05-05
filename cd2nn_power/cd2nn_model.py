@@ -47,28 +47,17 @@ class CDNNModel(tf.keras.Model):
         ))
         print(f"Final Layer: DOE + Propagation z={distance_to_plane} m")
 
-    def calculate_optical_power(self, field):
-        """
-        Calculate the optical power of a field.
-        field: tensor [B, H, W, 2] — complex field (Re, Im)
-        returns: tensor [B] — optical power for each batch
-        """
-        intensity = tf.reduce_sum(tf.square(field), axis=-1)  # intensity = |U|^2
-        power = tf.reduce_sum(intensity, axis=[1, 2])  # Sum over spatial dimensions
-        return power
 
     def call(self, inputs):
-        """
-        inputs: tensor [B, H, W, 2] — complex input field (Re, Im)
-        returns: tensor [B, H, W] — amplitude of the field after passing through the structure
-        """
         field = inputs
 
         for i, (doe, prop) in enumerate(zip(self.doe_layers, self.prop_layers)):
             field = doe(field)
             field = prop(field)
 
-        amplitude = tf.reduce_sum(field, axis=-1)  # Calculate amplitude directly from the field
+        intensity = tf.reduce_sum(tf.square(field), axis=-1)  # intensity = |U|^2
+        amplitude = tf.sqrt(intensity) #/ tf.reduce_max(tf.sqrt(intensity))  # Amplitude normalization
+        print("AAmplitude shape",amplitude.shape)
         amplitude = amplitude / tf.reduce_max(amplitude)  # Normalize amplitude
         print(
             "Amplitude min:", tf.reduce_min(amplitude),
