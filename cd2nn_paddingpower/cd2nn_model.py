@@ -67,14 +67,19 @@ class CDNNModel(tf.keras.Model):
 
         U_real = field[..., 0]
         U_imag = field[..., 1]
-        U_complex = tf.complex(U_real, U_imag)
-        intensity = tf.square(U_complex)  # intensity = |U|^2
-        amplitude = tf.cast(tf.sqrt(intensity), dtype=tf.float32)
-        amplitude = amplitude / tf.reduce_max(amplitude)  # Normalize amplitude
+        intensity = tf.square(U_real)+tf.square(U_imag)  # intensity = |U|^2
+        print(
+            "Intensity min:", tf.reduce_min(intensity),
+            "max:", tf.reduce_max(intensity),
+            "mean:", tf.reduce_mean(intensity)
+        )
+        # print("Intensity shape:", intensity.shape)
+        amplitude = tf.sqrt(intensity)
+        # print("Amplitude shape:", amplitude.shape)
         print(
             "Amplitude min:", tf.reduce_min(amplitude),
             "max:", tf.reduce_max(amplitude),
             "mean:", tf.reduce_mean(amplitude)
         )
 
-        return amplitude
+        return intensity

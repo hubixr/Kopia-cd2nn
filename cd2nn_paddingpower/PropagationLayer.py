@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-
+import matplotlib.pyplot as plt
 """
 PropagationLayer: A TensorFlow custom layer for simulating light propagation.
 
@@ -77,6 +77,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         re_u = inputs[..., 0]
         im_u = inputs[..., 1]
         power_before = tf.reduce_sum(re_u**2 + im_u**2)
+        # Compute intensity as the sum of squares of real and imaginary parts
         # Replace .numpy() with tf.print for compatibility during graph execution
         # tf.print("Power before:", tf.reduce_sum(power_before))
         # print("re_u shape:", re_u.shape)
@@ -101,12 +102,11 @@ class PropagationLayer(tf.keras.layers.Layer):
         # tf.print("h_real min/max:", tf.reduce_min(self.h_real), tf.reduce_max(self.h_real))
         # tf.print("h_imag min/max:", tf.reduce_min(self.h_imag), tf.reduce_max(self.h_imag))
         # tf.print("h_real sum:", tf.reduce_sum(self.h_real))
-
         N = tf.cast(tf.shape(re_u)[1] * tf.shape(re_u)[2], tf.float32)  # szer. * wys.
-        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real)) /N
-        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag)) /N
-        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_imag)) /N
-        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_real)) /N
+        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real)) /tf.sqrt(N**3)
+        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag)) /tf.sqrt(N**3)
+        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_imag)) /tf.sqrt(N**3)
+        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_real)) /tf.sqrt(N**3)
         # print("re_re shape:", re_re.shape)
         print("End of convolutions")
         
@@ -116,7 +116,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_imag = re_im + im_re
 
         power_after_convolution = tf.reduce_sum(out_real**2 + out_imag**2)
-        # tf.print("Power after convolutions:", tf.reduce_sum(power_after_convolution))
+        # tf.print("Power after convolutions:", power_after_convolution)
 
 
         #Crop to original size
@@ -128,9 +128,11 @@ class PropagationLayer(tf.keras.layers.Layer):
         # print("out_imag shape after cropping:", out_imag.shape)
         out_real = tf.squeeze(out_real, axis=-1)
         out_imag = tf.squeeze(out_imag, axis=-1)
-        power_after = tf.reduce_sum(out_real**2 + out_imag**2)
-        # tf.print("Power after cropping:", tf.reduce_sum(power_after))
-        # tf.print("Power loss after cropping:", power_after / power_after_convolution*100)
+        power_after = tf.reduce_sum(tf.reduce_sum(out_real**2 + out_imag**2))
+        print("power_after shape:", power_after.shape)
+        # tf.print("Power after cropping:", power_after)
+        difference = power_after_convolution - power_after
+        # tf.print("Power loss after cropping:", difference/power_after_convolution*100) 
         # print("out_real shape after squeeze:", out_real.shape)
         # print("out_imag shape after squeeze:", out_imag.shape)
         # # Normalize the outputs
