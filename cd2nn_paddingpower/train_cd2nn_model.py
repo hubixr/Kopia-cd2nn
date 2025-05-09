@@ -1,3 +1,4 @@
+import keras
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -24,11 +25,11 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 20
+EPOCHS = 50
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
-CALLBACK_PATIENCE = 5
-CALLBACK_MIN_DELTA = 5e-4
+CALLBACK_PATIENCE = 2
+CALLBACK_MIN_DELTA = 2e-4
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -212,6 +213,7 @@ def calculate_power(y):
 #     loss = tf.reduce_mean(tf.square(A_pred - A_true))  # Mean Squared Error
 #     return loss
 
+""" Dodać funkcję strat PSNR"""
 model.compile(optimizer=opt, loss=loss_fn, metrics=[psnr_metric])
 
 
@@ -238,6 +240,8 @@ callback = tf.keras.callbacks.EarlyStopping(
 )
 start_time = time.time()
 history = model.fit(train_dataset, validation_data=val_dataset, epochs=EPOCHS, callbacks=[callback], verbose=1)
+model.summary()
+keras.utils.plot_model(model, show_shapes=True, to_file='model_plot.png')
 end_time = time.time()
 print(f"Model training time: {end_time - start_time:.2f} seconds")
 

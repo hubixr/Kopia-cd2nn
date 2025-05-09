@@ -50,7 +50,6 @@ class PropagationLayer(tf.keras.layers.Layer):
         h = 1/(1j * self.wavelength * self.distance) * np.exp(1j * arg)
         h_real = np.real(h)
         h_imag = np.imag(h)
-
         # Apply fftshift to the kernel during initialization
         h_real = np.fft.fftshift(h_real)
         h_imag = np.fft.fftshift(h_imag)
