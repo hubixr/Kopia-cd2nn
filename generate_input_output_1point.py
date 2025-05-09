@@ -37,12 +37,12 @@ def generate_gaussian_targets(filename):
     plt.close()
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=1000):
+def generate_thz_inputs(folder, num_samples=5000):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):
         # Plane wave with apertures of random diameters between 40 and 128px
-        diameter_px = np.random.randint(100, 180)  # Random diameter in pixels
+        diameter_px = np.random.randint(100, 181)  # Random diameter in pixels
         radius_px = diameter_px // 2
 
         # Create a circular aperture mask
