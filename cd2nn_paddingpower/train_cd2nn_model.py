@@ -24,10 +24,12 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 10
-LEARNING_RATE = 0.01
+EPOCHS = 20
+LEARNING_RATE = 0.003
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 5
+CALLBACK_MIN_DELTA = 5e-4
+# ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
@@ -52,12 +54,6 @@ else:
 # ================================
 # FUNKCJE POMOCNICZE
 # ================================
-
-"""# Function to rescale and crop a .bmp file to match DOE_SHAPE
-def rescale_and_crop_bmp(image, target_shape):
-    # Ensure the image is resized while maintaining aspect ratio
-    image = ImageOps.fit(image, target_shape, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-    return image"""
 
 # Function to load .bmp file and preprocess it for the model
 def load_bmp_fields(file_path, target_shape):
@@ -89,7 +85,6 @@ def crop_or_resize_input(input_data, target_shape):
     cropped_data = input_data[:, :target_shape[0], :target_shape[1]]  # Crop to target shape
     return cropped_data
 
-# # Update to load .npy files directly without resizing or cropping
 # def load_npy_fields(input_dir):
 #     files = sorted(input_dir.glob("*.npy"))
 #     inputs = []
@@ -198,8 +193,7 @@ model = CDNNModel(
 
 loss_fn = tf.keras.losses.MeanSquaredError()  # Absolute Mean Error
 opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipnorm for gradient clipping - better stability
-# opt = tf.train.experimental.enable_mixed_precision_graph_rewrite(opt)
-# lr_scheduler = tf.keras.callbacks.LearningRateScheduler(lambda epoch: 1e-4 * 10**(epoch/20))
+
 
 def psnr_metric(y_true, y_pred):
     # Ensure y_pred has the same shape as y_true by adding a channel dimension if missing
@@ -210,18 +204,16 @@ def psnr_metric(y_true, y_pred):
 def calculate_power(y):
     return tf.reduce_sum(tf.square(y), axis=[1, 2])
 
-# Custom loss function to balance amplitude loss and power conservation
-def custom_loss(y_true, y_pred):
-    # tf.print("yyyyyyyyyyyyyyyyyyyy_true shape:", y_true.shape)
-    A_pred = tf.abs(y_pred)
-    A_true = tf.abs(y_true)
-    loss = tf.reduce_mean(tf.square(A_pred - A_true))  # Mean Squared Error
+# # Custom loss function to balance amplitude loss and power conservation
+# def custom_loss(y_true, y_pred):
+#     # tf.print("yyyyyyyyyyyyyyyyyyyy_true shape:", y_true.shape)
+#     A_pred = tf.abs(y_pred)
+#     A_true = tf.abs(y_true)
+#     loss = tf.reduce_mean(tf.square(A_pred - A_true))  # Mean Squared Error
+#     return loss
 
-    return loss
+model.compile(optimizer=opt, loss=loss_fn, metrics=[psnr_metric])
 
-# Compile the model with the updated custom loss function
-model.compile(optimizer=opt, loss=custom_loss, metrics=[psnr_metric])
-# mixed_precision.set_global_policy('mixed_float16')
 
 print("Tworzenie datasetów...")
 start_time = time.time()
@@ -240,8 +232,8 @@ print("y_test range:", y_test.min(), y_test.max())
 print("Trenowanie modelu...")
 callback = tf.keras.callbacks.EarlyStopping(
     monitor='loss',  # Monitor the loss
-    min_delta=5e-4,  # Minimum change in loss to qualify as an improvement
-    patience=5,      # Number of epochs with no improvement after which training will stop
+    min_delta=CALLBACK_MIN_DELTA,  # Minimum change in loss to qualify as an improvement
+    patience= CALLBACK_PATIENCE,      # Number of epochs with no improvement after which training will stop
     restore_best_weights=True  # Restore the weights of the best epoch
 )
 start_time = time.time()
@@ -343,7 +335,6 @@ for i in range(len(model.doe_layers)):
     axes[1, i].axis('off')
     plt.colorbar(im1, ax=axes[1, i], fraction=0.046, pad=0.04)
 
-    # Use phase directly from the model instead of loading from a file
     phase = model.doe_layers[i].phase.numpy()
     phase = (phase/(2*np.pi)*255).astype(np.uint8)
     print("phsae min:", phase.min())
@@ -371,45 +362,25 @@ print(f"Sample output saved to {sample_output_file}")
 fig, axes = plt.subplots(2, 5, figsize=(18, 8))
 for i in range(5):
     # Plot input
-    im0 = axes[0, i].imshow(sample_inputs[i, :, :, 0], cmap='gray')
+    im0 = axes[0, i].imshow(sample_inputs[i, :, :, 0], cmap='gray', extent=[0, DOE_SHAPE[1], 0, DOE_SHAPE[0]])
     axes[0, i].set_title(f'Input {i + 1}')
-    axes[0, i].axis('off')
+    axes[0, i].set_xlabel('X (pixels)')
+    axes[0, i].set_ylabel('Y (pixels)')
+    axes[0, i].axis('on')
     plt.colorbar(im0, ax=axes[0, i], fraction=0.046, pad=0.04)
 
     # Plot output
-    im1 = axes[1, i].imshow(output_amplitude[i], cmap='hot')
+    im1 = axes[1, i].imshow(output_amplitude[i], cmap='hot', extent=[0, DOE_SHAPE[1], 0, DOE_SHAPE[0]])
     axes[1, i].set_title(f'Output {i + 1}')
-    axes[1, i].axis('off')
+    axes[1, i].set_xlabel('X (pixels)')
+    axes[1, i].set_ylabel('Y (pixels)')
+    axes[1, i].axis('on')
     plt.colorbar(im1, ax=axes[1, i], fraction=0.046, pad=0.04)
 
 plt.tight_layout()
 plt.savefig(f"sample_outputs/inputs_outputs_plot_{file_suffix}.png")
 plt.close()
 print("Plotted 5 inputs and outputs.")
-
-
-# Function to calculate optical power of an image
-# Optical power is proportional to the sum of squared pixel intensities
-def calculate_optical_power(image_array):
-    return np.sum(image_array)
-
-# Calculate and compare power loss between input and output during evaluation
-def calculate_power_loss(input_data, output_data):
-    input_power = calculate_optical_power(input_data)
-    output_power = calculate_optical_power(output_data)
-    power_loss = input_power - output_power
-    power_loss_ratio = (power_loss / input_power) * 100  # Percentage loss
-    return input_power, output_power, power_loss, power_loss_ratio
-
-# ================================
-# WIZUALIZACJA WYNIKÓW + FAZY DOE
-# ================================
-# Add power comparison during visualization
-print("Calculating power loss...")
-for i in range(len(output_amplitude)):  # Iterate over the number of samples in output_amplitude
-    input_power, output_power, power_loss, power_loss_ratio = calculate_power_loss(x_test[i, :, :, 0], output_amplitude[i])
-    print(f"Sample {i + 1}: Input Power = {input_power:.2f}, Output Power = {output_power:.2f}, Power Loss = {power_loss:.2f}, Power Loss Ratio = {power_loss_ratio:.2f}%")
-
 
 # ================================
 # ZAPIS MODELU
