@@ -38,22 +38,23 @@ class PropagationLayer(tf.keras.layers.Layer):
         dx = self.pixel_size
         x = np.arange(-W, W) * dx
         y = np.arange(-H, H) * dx
-        X, Y = np.meshgrid(x, y)
+        fx = np.fft.fftfreq(2*W, d=dx)  # oś pozioma
+        fy = np.fft.fftfreq(2*H, d=dx)  # oś pionowa
+        # Siatka częstotliwości
+        FX, FY = np.meshgrid(fx, fy)
+        r2 = FX**2 + FY**2
+        mask = self.wavelength**2 * r2 > 1
+        print("PROBBLEEMMYYYY: ", np.sum(mask))  # ile punktów ma problematyczny pierwiastek
 
-        r2 = X**2 + Y**2
+        
         k = 2 * np.pi / self.wavelength
-        arg = k * self.distance + (np.pi * r2) / (self.wavelength * self.distance)
+        # arg = -1j * 2 * np.pi * self.distance / self.wavelength * np.sqrt(1 - self.wavelength**2 * r2)
+        # h = np.exp(arg)
+        arg = -1j*np.pi*self.distance * self.wavelength * r2
+        h = np.exp(1j*k*self.distance)*np.exp(arg)
 
-        # Compute h_real and h_imag using NumPy
-        # h_real = scale * np.cos(arg)
-        # h_imag = scale * np.sin(arg)
-        h = 1/(1j * self.wavelength * self.distance) * np.exp(1j * arg)
         h_real = np.real(h)
         h_imag = np.imag(h)
-
-        # Apply fftshift to the kernel during initialization
-        h_real = np.fft.fftshift(h_real)
-        h_imag = np.fft.fftshift(h_imag)
 
         print("h_real shape:", h_real.shape)
         print("h_imag shape:", h_imag.shape)
@@ -113,10 +114,12 @@ class PropagationLayer(tf.keras.layers.Layer):
         # tf.print("h_real sum:", tf.reduce_sum(self.h_real))
         print("Number of pixels in re_re:", tf.size(re_u).numpy())
         N = tf.cast(tf.shape(re_u)[1] * tf.shape(re_u)[2], tf.float32)  # szer. * wys.
-        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real)) /tf.sqrt(N**3)
-        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag)) /tf.sqrt(N**3)
-        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_imag)) /tf.sqrt(N**3)
-        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_real)) /tf.sqrt(N**3)
+        h_real_frequency = tf.cast(self.h_real[None, :, :self.shape_[1] + 1], tf.complex64)
+        h_imag_frequency = tf.cast(self.h_imag[None, :, :self.shape_[1] + 1], tf.complex64)
+        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency) /tf.sqrt(N**3)
+        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency) /tf.sqrt(N**3)
+        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency) /tf.sqrt(N**3)
+        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) /tf.sqrt(N**3)
         # print("re_re shape:", re_re.shape)
         print("End of convolutions")
         

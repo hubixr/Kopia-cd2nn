@@ -24,12 +24,12 @@ WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
-EPOCHS = 50
-LEARNING_RATE = 0.003
+NUM_LAYERS = 5
+EPOCHS = 100
+LEARNING_RATE = 0.03
 BATCH_SIZE = 1
-CALLBACK_PATIENCE = 2
-CALLBACK_MIN_DELTA = 2e-4
+CALLBACK_PATIENCE = 5
+CALLBACK_MIN_DELTA = 1e-4
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -213,7 +213,6 @@ def calculate_power(y):
 #     loss = tf.reduce_mean(tf.square(A_pred - A_true))  # Mean Squared Error
 #     return loss
 
-""" Dodać funkcję strat PSNR"""
 model.compile(optimizer=opt, loss=loss_fn, metrics=[psnr_metric])
 
 
@@ -392,4 +391,14 @@ print("Plotted 5 inputs and outputs.")
 print("Zapisuję model...")
 model.save(f'models/cd2nn_model_{file_suffix}.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
+
+# Validate input data for NaN or Inf values before training
+if np.any(np.isnan(x_train)) or np.any(np.isinf(x_train)):
+    raise ValueError("NaN or Inf detected in x_train")
+if np.any(np.isnan(x_val)) or np.any(np.isinf(x_val)):
+    raise ValueError("NaN or Inf detected in x_val")
+if np.any(np.isnan(x_test)) or np.any(np.isinf(x_test)):
+    raise ValueError("NaN or Inf detected in x_test")
+
+print("Input data validation passed: No NaN or Inf values detected.")
 

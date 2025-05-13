@@ -50,6 +50,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         h = 1/(1j * self.wavelength * self.distance) * np.exp(1j * arg)
         h_real = np.real(h)
         h_imag = np.imag(h)
+
         # Apply fftshift to the kernel during initialization
         h_real = np.fft.fftshift(h_real)
         h_imag = np.fft.fftshift(h_imag)
@@ -78,7 +79,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         power_before = tf.reduce_sum(re_u**2 + im_u**2)
         # Compute intensity as the sum of squares of real and imaginary parts
         # Replace .numpy() with tf.print for compatibility during graph execution
-        # tf.print("Power before:", tf.reduce_sum(power_before))
+        tf.print("Power before:", tf.reduce_sum(power_before))
         # print("re_u shape:", re_u.shape)
         # print("im_u shape:", im_u.shape)
         size = int(re_u.shape[1]/2)
@@ -97,10 +98,20 @@ class PropagationLayer(tf.keras.layers.Layer):
         # print("re_u shape after squeeze:", re_u.shape)
         # print("im_u shape after squeeze:", im_u.shape)
         # Perform 4 fft convolutions
+        intensity = re_u**2 + im_u**2
+        plt.figure(figsize=(8, 6))
+        plt.imshow(intensity[0], cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='Intensity')
+        plt.title('Intensity Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('intensity_plot_before.png')
+        plt.close()
         print("Start of convolutions")
         # tf.print("h_real min/max:", tf.reduce_min(self.h_real), tf.reduce_max(self.h_real))
         # tf.print("h_imag min/max:", tf.reduce_min(self.h_imag), tf.reduce_max(self.h_imag))
         # tf.print("h_real sum:", tf.reduce_sum(self.h_real))
+        print("Number of pixels in re_re:", tf.size(re_u).numpy())
         N = tf.cast(tf.shape(re_u)[1] * tf.shape(re_u)[2], tf.float32)  # szer. * wys.
         re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * tf.signal.rfft2d(self.h_real)) /tf.sqrt(N**3)
         im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * tf.signal.rfft2d(self.h_imag)) /tf.sqrt(N**3)
@@ -114,8 +125,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = re_re - im_im
         out_imag = re_im + im_re
 
-        power_after_convolution = tf.reduce_sum(out_real**2 + out_imag**2)
-        # tf.print("Power after convolutions:", power_after_convolution)
+        power_after_convolution = out_real**2 + out_imag**2
+        tf.print("Power after convolutions:", tf.reduce_sum(power_after_convolution))
 
 
         #Crop to original size
@@ -127,11 +138,18 @@ class PropagationLayer(tf.keras.layers.Layer):
         # print("out_imag shape after cropping:", out_imag.shape)
         out_real = tf.squeeze(out_real, axis=-1)
         out_imag = tf.squeeze(out_imag, axis=-1)
-        power_after = tf.reduce_sum(tf.reduce_sum(out_real**2 + out_imag**2))
-        print("power_after shape:", power_after.shape)
-        # tf.print("Power after cropping:", power_after)
-        difference = power_after_convolution - power_after
-        # tf.print("Power loss after cropping:", difference/power_after_convolution*100) 
+        power_after = tf.reduce_sum(out_real**2 + out_imag**2)
+        intensity = out_real**2 + out_imag**2
+        plt.figure(figsize=(8, 6))
+        plt.imshow(intensity[0], cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='Intensity')
+        plt.title('Intensity Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('intensity_plot_after.png')
+        plt.close()
+        # tf.print("Power after cropping:", tf.reduce_sum(power_after))
+        # tf.print("Power loss after cropping:", power_after / power_after_convolution*100)
         # print("out_real shape after squeeze:", out_real.shape)
         # print("out_imag shape after squeeze:", out_imag.shape)
         # # Normalize the outputs
@@ -143,6 +161,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         # print("Output real shape:", out_real.shape)
         # print("Output imaginary shape:", out_imag.shape)
         print("output shape:", tf.stack([out_real, out_imag], axis=-1).shape)
+        tf.print("Power after resizing:", tf.reduce_sum(tf.reduce_sum(out_real**2 + out_imag**2)))
         # Check for NaN or Inf in the outputs using TensorFlow operations
         # tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real")
         # tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag")
