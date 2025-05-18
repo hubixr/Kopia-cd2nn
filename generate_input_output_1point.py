@@ -42,7 +42,7 @@ def generate_thz_inputs(folder, num_samples=5000):
 
     for i in range(num_samples):
         # Plane wave with apertures of random diameters between 40 and 128px
-        diameter_px = np.random.randint(50, 181)  # Random diameter in pixels
+        diameter_px = np.random.randint(50, 128)  # Random diameter in pixels
         radius_px = diameter_px // 2
 
         # Create a circular aperture mask

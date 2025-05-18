@@ -116,10 +116,68 @@ class PropagationLayer(tf.keras.layers.Layer):
         N = tf.cast(tf.shape(re_u)[1] * tf.shape(re_u)[2], tf.float32)  # szer. * wys.
         h_real_frequency = tf.cast(self.h_real[None, :, :self.shape_[1] + 1], tf.complex64)
         h_imag_frequency = tf.cast(self.h_imag[None, :, :self.shape_[1] + 1], tf.complex64)
+        # Plot h_real in frequency domain
+        plt.figure(figsize=(8, 6))
+        plt.imshow(h_real_frequency[0].numpy().real, cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='h_real Frequency')
+        plt.title('h_real Frequency Domain Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('h_real_frequency_plot.png')
+        plt.close()
+
+        # Plot h_imag in frequency domain
+        plt.figure(figsize=(8, 6))
+        plt.imshow(h_imag_frequency[0].numpy().real, cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='h_imag Frequency')
+        plt.title('h_imag Frequency Domain Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('h_imag_frequency_plot.png')
+        plt.close()
         re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency) /tf.sqrt(N**3)
         im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency) /tf.sqrt(N**3)
         re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency) /tf.sqrt(N**3)
         im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) /tf.sqrt(N**3)
+        # Plot re_re
+        plt.figure(figsize=(8, 6))
+        plt.imshow(re_re[0], cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='re_re')
+        plt.title('re_re Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('re_re_plot.png')
+        plt.close()
+
+        # Plot im_im
+        plt.figure(figsize=(8, 6))
+        plt.imshow(im_im[0], cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='im_im')
+        plt.title('im_im Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('im_im_plot.png')
+        plt.close()
+
+        # Plot re_im
+        plt.figure(figsize=(8, 6))
+        plt.imshow(re_im[0], cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='re_im')
+        plt.title('re_im Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('re_im_plot.png')
+        plt.close()
+
+        # Plot im_re
+        plt.figure(figsize=(8, 6))
+        plt.imshow(im_re[0], cmap='hot')  # Assuming batch size is 1
+        plt.colorbar(label='im_re')
+        plt.title('im_re Plot')
+        plt.xlabel('X-axis')
+        plt.ylabel('Y-axis')
+        plt.savefig('im_re_plot.png')
+        plt.close()
         # print("re_re shape:", re_re.shape)
         print("End of convolutions")
         

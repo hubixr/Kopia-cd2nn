@@ -25,11 +25,11 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 10
-LEARNING_RATE = 0.001
+EPOCHS = 50
+LEARNING_RATE = 0.003
 BATCH_SIZE = 1
-CALLBACK_PATIENCE = 5
-CALLBACK_MIN_DELTA = 1e-4
+CALLBACK_PATIENCE = 1
+CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -205,15 +205,58 @@ def psnr_metric(y_true, y_pred):
 def calculate_power(y):
     return tf.reduce_sum(tf.square(y), axis=[1, 2])
 
-# # Custom loss function to balance amplitude loss and power conservation
-# def custom_loss(y_true, y_pred):
-#     # tf.print("yyyyyyyyyyyyyyyyyyyy_true shape:", y_true.shape)
-#     A_pred = tf.abs(y_pred)
-#     A_true = tf.abs(y_true)
-#     loss = tf.reduce_mean(tf.square(A_pred - A_true))  # Mean Squared Error
-#     return loss
+lambda_smooth = 3e-6  # Weight for smoothness regularization
+def smoothness_regularization(phase):
+    """
+    Compute the smoothness regularization term for the phase mask using L2 difference with 8 neighbors.
+    Args:
+        phase: Tensor of shape (H, W), the phase mask.
+    Returns:
+        Smoothness regularization term (scalar).
+    """
+    # Pad the phase mask to handle borders
+    phase_padded = tf.pad(phase, [[1, 1], [1, 1]], mode='REFLECT')
+    neighbors = [
+        phase_padded[0:-2, 0:-2],  # top-left
+        phase_padded[0:-2, 1:-1],  # top
+        phase_padded[0:-2, 2:  ],  # top-right
+        phase_padded[1:-1, 0:-2],  # left
+        phase_padded[1:-1, 2:  ],  # right
+        phase_padded[2:  , 0:-2],  # bottom-left
+        phase_padded[2:  , 1:-1],  # bottom
+        phase_padded[2:  , 2:  ]   # bottom-right
+    ]
+    center = phase
+    smoothness_term = 0
+    for n in neighbors:
+        smoothness_term += tf.reduce_sum(tf.square(center - n))
+    return smoothness_term
+def custom_loss_with_model(model):
+    def custom_loss(y_true, y_pred):
+        
+        # Custom loss function with smoothness regularization.
+        # Args:
+        #     y_true: Ground truth target.
+        #     y_pred: Predicted output.
+        # Returns:
+        #     Total loss (scalar).
+        
+        # Compute the standard loss (e.g., Mean Squared Error)
+        mse_loss = tf.reduce_mean(tf.square(y_true - y_pred))
 
-model.compile(optimizer=opt, loss=loss_fn, metrics=[psnr_metric])
+        # Add smoothness regularization for each phase mask
+        smoothness_loss = 0
+        for layer in model.doe_layers:
+            smoothness_loss += smoothness_regularization(layer.phase)
+
+        # Combine the losses
+        total_loss = mse_loss + lambda_smooth * smoothness_loss
+        return total_loss
+
+    return custom_loss
+
+
+model.compile(optimizer=opt, loss=custom_loss_with_model(model), metrics=[psnr_metric])
 
 
 print("Tworzenie datasetów...")
@@ -401,4 +444,6 @@ if np.any(np.isnan(x_test)) or np.any(np.isinf(x_test)):
     raise ValueError("NaN or Inf detected in x_test")
 
 print("Input data validation passed: No NaN or Inf values detected.")
+
+
 
