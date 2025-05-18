@@ -25,11 +25,12 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 10
+EPOCHS = 5
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 1
 CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
+SMOOTHNESS_WEIGHT = 1e-8 #def 1e-7
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -205,7 +206,7 @@ def psnr_metric(y_true, y_pred):
 def calculate_power(y):
     return tf.reduce_sum(tf.square(y), axis=[1, 2])
 
-lambda_smooth = 1e-6  # Weight for smoothness regularization def 1e-6
+lambda_smooth = SMOOTHNESS_WEIGHT  # Weight for smoothness regularization def 1e-6
 def smoothness_regularization(phase):
     """
     Compute the smoothness regularization term for the phase mask using L2 difference with 8 neighbors.
