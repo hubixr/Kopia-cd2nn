@@ -135,10 +135,10 @@ class PropagationLayer(tf.keras.layers.Layer):
         plt.ylabel('Y-axis')
         plt.savefig('h_imag_frequency_plot.png')
         plt.close()
-        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency) /tf.sqrt(N**3)
-        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency) /tf.sqrt(N**3)
-        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency) /tf.sqrt(N**3)
-        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) /tf.sqrt(N**3)
+        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency) /tf.sqrt(N)
+        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency) /tf.sqrt(N)
+        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency) /tf.sqrt(N)
+        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) /tf.sqrt(N)
         # Plot re_re
         plt.figure(figsize=(8, 6))
         plt.imshow(re_re[0], cmap='hot')  # Assuming batch size is 1

@@ -25,7 +25,7 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 50
+EPOCHS = 10
 LEARNING_RATE = 0.003
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 1
@@ -205,7 +205,7 @@ def psnr_metric(y_true, y_pred):
 def calculate_power(y):
     return tf.reduce_sum(tf.square(y), axis=[1, 2])
 
-lambda_smooth = 3e-6  # Weight for smoothness regularization
+lambda_smooth = 1e-6  # Weight for smoothness regularization def 1e-6
 def smoothness_regularization(phase):
     """
     Compute the smoothness regularization term for the phase mask using L2 difference with 8 neighbors.
@@ -295,19 +295,106 @@ print(evaluation_results)
 psnr_value = evaluation_results[1]  # Assuming PSNR is the second metric in evaluation_results
 file_suffix = f"PSNR_{psnr_value:.2f}_freq_{FREQUENCY/1e9:.3f}GHz_batch_{BATCH_SIZE}_layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
 
+def periodic_phase_optimization(phase):
+    """
+    Post-process a phase mask to reduce sharp discontinuities by adjusting each pixel by -2π, 0, or +2π
+    to minimize the sum of squared phase differences with its 4-connected neighbors.
+    Args:
+        phase: tf.Tensor of shape [H, W], dtype float32, values in [0, 2π)
+    Returns:
+        optimized_phase: tf.Tensor of shape [H, W], dtype float32
+    """
+    pi2 = tf.constant(2 * np.pi, dtype=phase.dtype)
+    H = tf.shape(phase)[0]
+    W = tf.shape(phase)[1]
+
+    # Create 3 candidate phase masks: phi-2pi, phi, phi+2pi
+    candidates = tf.stack([
+        phase - pi2,  # k = -1
+        phase,       # k = 0
+        phase + pi2  # k = +1
+    ], axis=-1)  # shape: [H, W, 3]
+
+    # Pad for neighbor computation (REFLECT to avoid border artifacts)
+    pad = [[1, 1], [1, 1], [0, 0]]
+    candidates_padded = tf.pad(candidates, pad, mode='REFLECT')  # shape: [H+2, W+2, 3]
+
+    # For each direction, get neighbor values for all candidates
+    up    = candidates_padded[0:-2, 1:-1, :]  # [H, W, 3]
+    down  = candidates_padded[2:  , 1:-1, :]
+    left  = candidates_padded[1:-1, 0:-2, :]
+    right = candidates_padded[1:-1, 2:  , :]
+
+    # For each candidate, compute cost as sum of squared differences to 4 neighbors
+    cost = (
+        tf.square(candidates - up) +
+        tf.square(candidates - down) +
+        tf.square(candidates - left) +
+        tf.square(candidates - right)
+    )  # shape: [H, W, 3]
+
+    # Find the k (index) with minimum cost for each pixel
+    best_k = tf.argmin(cost, axis=-1, output_type=tf.int32)  # shape: [H, W], values in {0,1,2}
+
+    # Gather the optimal phase for each pixel
+    # Prepare indices for tf.gather_nd
+    H_idx = tf.range(H, dtype=tf.int32)
+    W_idx = tf.range(W, dtype=tf.int32)
+    H_grid, W_grid = tf.meshgrid(H_idx, W_idx, indexing='ij')
+    gather_idx = tf.stack([H_grid, W_grid, best_k], axis=-1)  # shape: [H, W, 3]
+    optimized_phase = tf.gather_nd(candidates, gather_idx)  # shape: [H, W]
+
+    # Optionally wrap back to [0, 2pi)
+    optimized_phase = tf.math.floormod(optimized_phase, pi2)
+    return optimized_phase
+
 # Save the best trained phase mask to a folder as BMP
 output_dir = Path("best_doe_masks")
 output_dir.mkdir(exist_ok=True)
 for i, layer in enumerate(model.doe_layers):
     phase = layer.phase.numpy()
+    # Save unoptimized phase mask for comparison
+    phase_unoptimized_normalized = (phase/(2*np.pi)*255).astype(np.uint8)
+    output_file_bmp_unopt = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}_unoptimized.bmp'
+    Image.fromarray(phase_unoptimized_normalized).save(output_file_bmp_unopt)
+    print(f"Saved best trained (unoptimized) phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp_unopt}")
 
-    # Normalize phase to range 0-255
-    phase_normalized = (phase/(2*np.pi)*255).astype(np.uint8)
+    # Convert to tf.Tensor for optimization
+    phase_tensor = tf.convert_to_tensor(phase, dtype=tf.float32)
+    # Optimize phase mask to reduce discontinuities
+    optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
+
+    # Normalize optimized phase to range 0-255
+    phase_normalized = (optimized_phase/(2*np.pi)*255).astype(np.uint8)
 
     # Save as BMP file
     output_file_bmp = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}.bmp'
     Image.fromarray(phase_normalized).save(output_file_bmp)
-    print(f"Saved best trained phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp}")
+    print(f"Saved best trained (optimized) phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp}")
+
+# Save a side-by-side PNG comparison of the phase mask before and after periodic phase optimization for each DOE layer
+for i, layer in enumerate(model.doe_layers):
+    phase = layer.phase.numpy()
+    # Unoptimized phase mask
+    phase_unoptimized_normalized = (phase/(2*np.pi)*255).astype(np.uint8)
+    # Optimize phase mask
+    phase_tensor = tf.convert_to_tensor(phase, dtype=tf.float32)
+    optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
+    phase_optimized_normalized = (optimized_phase/(2*np.pi)*255).astype(np.uint8)
+
+    # Create a side-by-side comparison image with matplotlib and titles
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].imshow(phase_unoptimized_normalized, cmap='gray', vmin=0, vmax=255)
+    axes[0].set_title('Before Optimization')
+    axes[0].axis('off')
+    axes[1].imshow(phase_optimized_normalized, cmap='gray', vmin=0, vmax=255)
+    axes[1].set_title('After Optimization')
+    axes[1].axis('off')
+    plt.tight_layout()
+    output_file_png = output_dir / f'phase_comparison_{i + 1}_{file_suffix}.png'
+    plt.savefig(output_file_png)
+    plt.close(fig)
+    print(f"Saved phase mask comparison (before/after optimization) for DOE Layer {i + 1} as PNG to {output_file_png}")
 
 print("LICZBA WARSTW:", len(model.doe_layers))
 # Ensure the `saved_histories` directory exists
@@ -382,7 +469,9 @@ for i in range(len(model.doe_layers)):
     plt.colorbar(im1, ax=axes[1, i], fraction=0.046, pad=0.04)
 
     phase = model.doe_layers[i].phase.numpy()
-    phase = (phase/(2*np.pi)*255).astype(np.uint8)
+    phase_tensor = tf.convert_to_tensor(phase, dtype=tf.float32)
+    optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
+    phase = (optimized_phase/(2*np.pi)*255).astype(np.uint8)
     print("phsae min:", phase.min())
     print("phase max:", phase.max())
     im2 = axes[2, i].imshow(phase, cmap='gray', vmin=0, vmax=255)
@@ -444,6 +533,8 @@ if np.any(np.isnan(x_test)) or np.any(np.isinf(x_test)):
     raise ValueError("NaN or Inf detected in x_test")
 
 print("Input data validation passed: No NaN or Inf values detected.")
+
+
 
 
 
