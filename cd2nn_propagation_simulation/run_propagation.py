@@ -6,6 +6,7 @@ from cd2nn_model import CDNNModel
 import time
 # from tensorflow.keras import mixed_precision
 from PIL import Image
+import argparse
 
 # mixed_precision.set_global_policy('float32')
 
@@ -28,6 +29,17 @@ INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.npy"
 
 # ================================
+# Parse command-line arguments
+# ================================
+parser = argparse.ArgumentParser()
+parser.add_argument('--mask_path', type=str, default="validation_data_lenses/phase_mask/lens_px_0.9mm_size_128_frequency96GHz_f_200mm.bmp", help='Path to the phase mask image (.bmp)')
+parser.add_argument('--output_path', type=str, default="./outputs", help='Path to save the output .npy file')
+# ... add other arguments as needed ...
+args = parser.parse_args()
+mask_path = args.mask_path
+output_path = args.output_path
+
+# ================================
 # FUNKCJE POMOCNICZE
 # ================================
 # Function to load .bmp file and preprocess it for the model
@@ -45,6 +57,7 @@ def load_bmp_as_input(file_path, target_shape):
 print("Budowanie modelu CDNN...")
 model = CDNNModel(
     num_layers=NUM_LAYERS,
+    phase_mask = mask_path,
     shape=DOE_SHAPE,
     wavelength=WAVELENGTH,
     distance_to_plane=PROPAGATION_DISTANCE_TO_TARGET,
@@ -122,3 +135,36 @@ print(f"Output Power (Denormalized) = {output_power:.2f}")
 power_loss = input_power - output_power
 power_loss_ratio = (power_loss / input_power) * 100
 print(f"Power Loss = {power_loss:.2f}, Power Loss Ratio = {power_loss_ratio:.2f}%")
+
+# ================================
+# Save intensity and amplitude to output_path
+# ================================
+intensity = np.abs(output[0])
+amplitude = np.sqrt(np.square(np.real(output[0])) + np.square(np.imag(output[0])))
+np.save(output_path, {'intensity': intensity, 'amplitude': amplitude})
+print(f"Propagation results saved to {output_path}")
+
+# ================================
+# Save heatmaps as images
+# ================================
+import matplotlib.pyplot as plt
+import os
+
+def save_heatmap(array, out_path, title):
+    plt.figure(figsize=(6, 5))
+    plt.imshow(array, cmap='hot')
+    plt.title(title)
+    plt.colorbar()
+    plt.tight_layout()
+    plt.savefig(out_path)
+    plt.close()
+
+# Save intensity heatmap
+intensity_img_path = os.path.splitext(output_path)[0] + '_intensity_heatmap.png'
+save_heatmap(intensity, intensity_img_path, 'Output Intensity Heatmap')
+print(f"Saved intensity heatmap to {intensity_img_path}")
+
+# Save amplitude heatmap
+amplitude_img_path = os.path.splitext(output_path)[0] + '_amplitude_heatmap.png'
+save_heatmap(amplitude, amplitude_img_path, 'Output Amplitude Heatmap')
+print(f"Saved amplitude heatmap to {amplitude_img_path}")

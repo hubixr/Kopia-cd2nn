@@ -28,20 +28,20 @@ Outputs:
 
 class CDNNModel(tf.keras.Model):
 
-    def __init__(self, num_layers, shape, wavelength, distance_between_layers, distance_to_plane, pixel_size, name=None):
+    def __init__(self, num_layers, shape, wavelength, distance_between_layers, distance_to_plane, pixel_size, phase_mask,name=None):
         super(CDNNModel, self).__init__(name=name)
         self.shape_ = shape
         self.doe_layers = []
         self.prop_layers = []
 
         for i in range(num_layers - 1):
-            self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{i + 1}"))
+            self.doe_layers.append(DiffractiveMaskLayer(shape, phase_mask, name=f"doe_{i + 1}"))
             self.prop_layers.append(PropagationLayer(
                 wavelength, distance_between_layers, pixel_size, shape, name=f"prop_{i + 1}"
             ))
             print(f"Layer {i + 1}: DOE + Propagation z={distance_between_layers} m")
 
-        self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{num_layers}"))
+        self.doe_layers.append(DiffractiveMaskLayer(shape, phase_mask, name=f"doe_{num_layers}"))
         self.prop_layers.append(PropagationLayer(
             wavelength, distance_to_plane, pixel_size, shape, name=f"prop_{num_layers}"
         ))

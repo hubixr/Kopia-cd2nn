@@ -48,14 +48,18 @@ def load_bmp_as_input(file_path, target_shape):
     return image_array
 
 class DiffractiveMaskLayer(tf.keras.layers.Layer):
-    def __init__(self, shape, name=None):
+    def __init__(self, shape, phase_mask_path=None, name=None):
         super(DiffractiveMaskLayer, self).__init__(name=name)
         self.shape_ = shape
+        self.phase_mask_path = phase_mask_path
 
     def build(self, input_shape):
         # Initialize phase as a trainable weight
-        # Load phase mask
-        phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)  # Preprocess to match model input shape
+        # Load phase mask from the provided path if given, else use default
+        if self.phase_mask_path is not None:
+            phase_mask = load_bmp_as_input(self.phase_mask_path, self.shape_)
+        else:
+            phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)
         self.phase = self.add_weight(
             name="phase",
             shape=self.shape_,
