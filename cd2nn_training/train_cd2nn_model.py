@@ -30,7 +30,7 @@ LEARNING_RATE = 0.003
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 1
 CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
-SMOOTHNESS_WEIGHT = 1e-8 #def 1e-7
+SMOOTHNESS_WEIGHT = 1e-7 #def 1e-7
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
