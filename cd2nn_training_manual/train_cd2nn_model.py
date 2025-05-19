@@ -9,8 +9,6 @@ import time
 # from tensorflow.keras import mixed_precision
 from PIL import Image
 from PIL import ImageOps
-import argparse
-import os
 
 # mixed_precision.set_global_policy('float32')
 
@@ -18,42 +16,25 @@ import os
 # ================================
 # PARAMETRY UKLADU
 # ================================
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--epochs', type=int, default=3)
-parser.add_argument('--input_dir', type=str, default=None)
-parser.add_argument('--learning_rate', type=float, default=0.003)
-parser.add_argument('--save_mask_unopt', type=str, default=None)
-parser.add_argument('--propagation_distance_between_doe', type=float, default=0.1)
-parser.add_argument('--propagation_distance_to_target', type=float, default=0.2)
-parser.add_argument('--num_layers', type=int, default=1)
-parser.add_argument('--batch_size', type=int, default=1)
-parser.add_argument('--callback_patience', type=int, default=1)
-parser.add_argument('--callback_min_delta', type=float, default=1e-4)
-parser.add_argument('--smoothness_weight', type=float, default=1e-7)
-args, unknown = parser.parse_known_args()
-
 DOE_SHAPE = (128, 128)  # [px]
 PIXEL_SIZE = 9e-4  # [m]
 FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
-PROPAGATION_DISTANCE_BEETWEEN_DOE = args.propagation_distance_between_doe  # [m]
-PROPAGATION_DISTANCE_TO_TARGET = args.propagation_distance_to_target  # [m]
-NUM_LAYERS = args.num_layers
-EPOCHS = args.epochs
-LEARNING_RATE = args.learning_rate
-BATCH_SIZE = args.batch_size
-CALLBACK_PATIENCE = args.callback_patience
-CALLBACK_MIN_DELTA = args.callback_min_delta
-SMOOTHNESS_WEIGHT = args.smoothness_weight
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
+PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
+NUM_LAYERS = 1
+EPOCHS = 5
+LEARNING_RATE = 0.003
+BATCH_SIZE = 1
+CALLBACK_PATIENCE = 1
+CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
+SMOOTHNESS_WEIGHT = 1e-7 #def 1e-7
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
 TARGET_FILE = DATA_DIR / "target_field.bmp"
-
-
 
 # List all available GPUs
 gpus = tf.config.list_physical_devices('GPU')
@@ -553,33 +534,6 @@ if np.any(np.isnan(x_test)) or np.any(np.isinf(x_test)):
     raise ValueError("NaN or Inf detected in x_test")
 
 print("Input data validation passed: No NaN or Inf values detected.")
-
-# Save the unoptimized and optimized phase mask for the first DOE layer if requested via argument
-if args.save_mask_unopt is not None:
-    phase = model.doe_layers[0].phase.numpy()
-    phase_unoptimized_normalized = (phase/(2*np.pi)*255).astype(np.uint8)
-    ext = os.path.splitext(args.save_mask_unopt)[1].lower()
-    if ext == ".npy":
-        np.save(args.save_mask_unopt, phase)
-        print(f"Unoptimized phase mask saved as .npy to {args.save_mask_unopt}")
-    else:
-        from PIL import Image
-        Image.fromarray(phase_unoptimized_normalized).save(args.save_mask_unopt)
-        print(f"Unoptimized phase mask saved as image to {args.save_mask_unopt}")
-
-    # Save optimized mask as well
-    phase_tensor = tf.convert_to_tensor(phase, dtype=tf.float32)
-    optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
-    phase_optimized_normalized = (optimized_phase/(2*np.pi)*255).astype(np.uint8)
-    opt_path = args.save_mask_unopt.replace("unopt", "opt")
-    if ext == ".npy":
-        np.save(opt_path, optimized_phase)
-        print(f"Optimized phase mask saved as .npy to {opt_path}")
-    else:
-        Image.fromarray(phase_optimized_normalized).save(opt_path)
-        print(f"Optimized phase mask saved as image to {opt_path}")
-
-
 
 
 
