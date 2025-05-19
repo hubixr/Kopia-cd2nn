@@ -17,9 +17,9 @@ RESULTS_CSV = "results.csv"
 param_name = "learning_rate"
 
 # Sweep ranges for EPOCHS and SMOOTHNESS_WEIGHT
-EPOCHS_RANGE = [5, 10, 20, 50]  # Example: [1, 3, 5] or use range(start, stop, step)
-SMOOTHNESS_WEIGHT_RANGE = [1e-6,5e-6,1e-7,5e-7, 1e-8, 5e-8]  # Example: [1e-8, 1e-7, 1e-6]
-LR_VALUES = [0.003, 0.001, 0.03]  # Example: [0.01, 0.03, 0.1]
+EPOCHS_RANGE = [5, 25,30,40, 50]  # Example: [1, 3, 5] or use range(start, stop, step)
+SMOOTHNESS_WEIGHT_RANGE = range(1e-8, 1e-9, 1e-8)  # Example: [1e-8, 1e-7, 1e-6]
+LR_VALUES = [0.003, 0.03]  # Example: [0.01, 0.03, 0.1]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
@@ -90,11 +90,11 @@ with open(RESULTS_CSV, "a") as results_file:
                 # 2. Optimize mask
                 phase_unopt = np.array(Image.open(mask_unopt_path))
                 phase_opt = periodic_phase_optimization(phase_unopt).numpy()
-                np.save(mask_opt_path, phase_opt)
+                # np.save(mask_opt_path, phase_opt)  # Removed to prevent saving large .npy files in masks folder
 
                 for mask_path, mask_label in [(mask_unopt_path, "unopt"), (mask_opt_path, "opt")]:
                     # 4. Run propagation simulation
-                    output_path = os.path.join(PROP_OUTPUT_DIR, f"output_{mask_label}_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.npy")
+                    output_path = os.path.join(PROP_OUTPUT_DIR, f"output_{mask_label}_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.bmp")
                     try:
                         result = subprocess.run([
                             "python", os.path.basename(PROP_SCRIPT),
