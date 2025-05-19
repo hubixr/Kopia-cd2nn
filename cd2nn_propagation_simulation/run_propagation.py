@@ -140,7 +140,7 @@ print(f"Power Loss = {power_loss:.2f}, Power Loss Ratio = {power_loss_ratio:.2f}
 # Save intensity and amplitude to output_path
 # ================================
 intensity = np.abs(output[0])
-amplitude = np.sqrt(np.square(np.real(output[0])) + np.square(np.imag(output[0])))
+amplitude = np.sqrt(intensity)
 np.save(output_path, {'intensity': intensity, 'amplitude': amplitude})
 print(f"Propagation results saved to {output_path}")
 
