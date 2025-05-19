@@ -15,14 +15,11 @@ PROP_OUTPUT_DIR = "propagation_outputs"
 RESULTS_CSV = "results.csv"
 
 param_name = "learning_rate"
-param_start = 0.03
-param_stop = 0.03
-param_step = 0.03
 
 # Sweep ranges for EPOCHS and SMOOTHNESS_WEIGHT
-EPOCHS_RANGE = [1, 5]  # Example: [1, 3, 5] or use range(start, stop, step)
-SMOOTHNESS_WEIGHT_RANGE = [1e-8]  # Example: [1e-8, 1e-7, 1e-6]
-
+EPOCHS_RANGE = [1, 2]  # Example: [1, 3, 5] or use range(start, stop, step)
+SMOOTHNESS_WEIGHT_RANGE = [1e-7, 1e-8]  # Example: [1e-8, 1e-7, 1e-6]
+LR_VALUES = [0.003]  # Example: [0.01, 0.03, 0.1]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
@@ -65,22 +62,16 @@ def periodic_phase_optimization(phase):
     return tf.math.floormod(best_phase, pi2)
 
 # --- Main sweep ---
-param_values = np.arange(param_start, param_stop + param_step, param_step)
 os.makedirs(MASK_SAVE_DIR, exist_ok=True)
 os.makedirs(PROP_OUTPUT_DIR, exist_ok=True)
 
 with open(RESULTS_CSV, "a") as results_file:
     for epochs in EPOCHS_RANGE:
         for smoothness_weight in SMOOTHNESS_WEIGHT_RANGE:
-            for val in param_values:
-                # Create subfolders for this sweep
-                mask_subdir = os.path.join(MASK_SAVE_DIR, f"lr_{val:.4f}", f"ep_{epochs}", f"sm_{smoothness_weight:.0e}")
-                output_subdir = os.path.join(PROP_OUTPUT_DIR, f"lr_{val:.4f}", f"ep_{epochs}", f"sm_{smoothness_weight:.0e}")
-                os.makedirs(mask_subdir, exist_ok=True)
-                os.makedirs(output_subdir, exist_ok=True)
+            for val in LR_VALUES:
                 # 1. Run training
-                mask_unopt_path = os.path.join(mask_subdir, f"mask_unopt.bmp")
-                mask_opt_path = os.path.join(mask_subdir, f"mask_opt.bmp")
+                mask_unopt_path = os.path.join(MASK_SAVE_DIR, f"mask_unopt_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.bmp")
+                mask_opt_path = os.path.join(MASK_SAVE_DIR, f"mask_opt_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.bmp")
                 subprocess.run([
                     "python", os.path.basename(TRAIN_SCRIPT),
                     f"--{param_name}", str(val),
@@ -99,15 +90,11 @@ with open(RESULTS_CSV, "a") as results_file:
                 # 2. Optimize mask
                 phase_unopt = np.array(Image.open(mask_unopt_path))
                 phase_opt = periodic_phase_optimization(phase_unopt).numpy()
-                # Squeeze to 2D before saving as image
-                phase_opt_img = np.squeeze(phase_opt)
-                if phase_opt_img.ndim != 2:
-                    raise ValueError(f"phase_opt image shape after squeeze is {phase_opt_img.shape}, expected (H, W)")
-                Image.fromarray(phase_opt_img.astype(np.uint8)).save(mask_opt_path)
+                np.save(mask_opt_path, phase_opt)
 
                 for mask_path, mask_label in [(mask_unopt_path, "unopt"), (mask_opt_path, "opt")]:
                     # 4. Run propagation simulation
-                    output_path = os.path.join(output_subdir, f"output_{mask_label}.npy")
+                    output_path = os.path.join(PROP_OUTPUT_DIR, f"output_{mask_label}_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.npy")
                     try:
                         result = subprocess.run([
                             "python", os.path.basename(PROP_SCRIPT),
