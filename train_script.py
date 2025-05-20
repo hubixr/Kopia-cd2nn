@@ -17,15 +17,15 @@ RESULTS_CSV = "results.csv"
 param_name = "learning_rate"
 
 # Sweep ranges for EPOCHS and SMOOTHNESS_WEIGHT
-EPOCHS_RANGE = [5, 25,30,40, 50]  # Example: [1, 3, 5] or use range(start, stop, step)
-SMOOTHNESS_WEIGHT_RANGE = range(1e-8, 1e-9, 1e-8)  # Example: [1e-8, 1e-7, 1e-6]
-LR_VALUES = [0.003, 0.03]  # Example: [0.01, 0.03, 0.1]
+EPOCHS_RANGE = [10,25]  # Example: [1, 3, 5] or use range(start, stop, step)
+SMOOTHNESS_WEIGHT_RANGE = [3e-9]
+LR_VALUES = [0.03]  # Example: [0.01, 0.03, 0.1]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 1
-CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
+CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-5
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_dir', type=str, default=None)
@@ -94,7 +94,7 @@ with open(RESULTS_CSV, "a") as results_file:
 
                 for mask_path, mask_label in [(mask_unopt_path, "unopt"), (mask_opt_path, "opt")]:
                     # 4. Run propagation simulation
-                    output_path = os.path.join(PROP_OUTPUT_DIR, f"output_{mask_label}_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.bmp")
+                    output_path = os.path.join(PROP_OUTPUT_DIR, f"output_{mask_label}_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.npy")
                     try:
                         result = subprocess.run([
                             "python", os.path.basename(PROP_SCRIPT),
@@ -111,8 +111,17 @@ with open(RESULTS_CSV, "a") as results_file:
                         print(f"Propagation output file not found: {output_path}")
                         continue
                     # 5. Load output and log max values
-                    output = np.load(output_path, allow_pickle=True).item()
-                    max_intensity = np.max(output["intensity"])
-                    max_amplitude = np.max(output["amplitude"])
-                    results_file.write(f"{val},{epochs},{smoothness_weight},{mask_label},{max_intensity},{max_amplitude}\n")
-                    results_file.flush()
+                    try:
+                        output = np.load(output_path, allow_pickle=True).item()
+                        max_intensity = np.max(output["intensity"])
+                        max_amplitude = np.max(output["amplitude"])
+                        # Delete the .npy file after reading
+                        try:
+                            os.remove(output_path)
+                        except Exception as e:
+                            print(f"Warning: Could not delete {output_path}: {e}")
+                        results_file.write(f"{val},{epochs},{smoothness_weight},{mask_label},{max_intensity},{max_amplitude}\n")
+                        results_file.flush()
+                    except Exception as e:
+                        print(f"Failed to load or process output file {output_path}: {e}")
+                        continue

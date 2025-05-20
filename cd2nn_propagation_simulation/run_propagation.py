@@ -32,7 +32,7 @@ TARGET_FILE = DATA_DIR / "target_field.npy"
 # Parse command-line arguments
 # ================================
 parser = argparse.ArgumentParser()
-parser.add_argument('--mask_path', type=str, default="validation_data_lenses/phase_mask/lens_px_0.9mm_size_128_frequency96GHz_f_200mm.bmp", help='Path to the phase mask image (.bmp)')
+parser.add_argument('--mask_path', type=str, default="validation_data_lenses/phase_mask/mask_opt_0.0300_ep10_sm3e-09.bmp", help='Path to the phase mask image (.bmp)')
 parser.add_argument('--output_path', type=str, default="./outputs", help='Path to save the output .npy file')
 # ... add other arguments as needed ...
 args = parser.parse_args()

@@ -33,7 +33,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         self.pixel_size = pixel_size
         self.shape_ = shape
         self.H, self.W = shape
-        self.padding_multiplier = 4
+        self.padding_multiplier = 5
 
     def build(self, input_shape):
         self.H = self.H * (self.padding_multiplier + 1)
