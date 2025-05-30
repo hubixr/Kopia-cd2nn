@@ -541,6 +541,7 @@ print("Plotted 5 inputs and outputs.")
 # ZAPIS MODELU
 # ================================
 print("Zapisuję model...")
+os.makedirs("models", exist_ok=True)
 model.save(f'models/cd2nn_model_{file_suffix}.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
 

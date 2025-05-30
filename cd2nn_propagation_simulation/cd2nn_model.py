@@ -79,4 +79,4 @@ class CDNNModel(tf.keras.Model):
             "mean:", tf.reduce_mean(amplitude)
         )
 
-        return amplitude
+        return intensity

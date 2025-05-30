@@ -17,15 +17,15 @@ RESULTS_CSV = "results.csv"
 param_name = "learning_rate"
 
 # Sweep ranges for EPOCHS and SMOOTHNESS_WEIGHT
-EPOCHS_RANGE = [10,25]  # Example: [1, 3, 5] or use range(start, stop, step)
+EPOCHS_RANGE = [10]  # Example: [1, 3, 5] or use range(start, stop, step)
 SMOOTHNESS_WEIGHT_RANGE = [3e-9]
 LR_VALUES = [0.03]  # Example: [0.01, 0.03, 0.1]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
+NUM_LAYERS = 2
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 1
-CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-5
+CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_dir', type=str, default=None)
