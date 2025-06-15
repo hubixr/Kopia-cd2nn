@@ -110,10 +110,11 @@ class PropagationLayer(tf.keras.layers.Layer):
         h_imag_frequency = tf.cast(self.h_imag[None, :, :H_padding], tf.complex64)
 
         # Perform FFT-based convolutions with normalization
-        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency) / tf.sqrt(N)
-        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency) / tf.sqrt(N)
-        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency) / tf.sqrt(N)
-        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) / tf.sqrt(N)
+        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency) / tf.sqrt(N**3)
+        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency) / tf.sqrt(N**3)
+        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency) / tf.sqrt(N**3)
+        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) / tf.sqrt(N**3)
+        # tf.print("re_re min:", tf.reduce_min(re_re), "max:", tf.reduce_max(re_re))
 
         print("End of convolutions")
 
