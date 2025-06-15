@@ -17,9 +17,9 @@ RESULTS_CSV = "results.csv"
 param_name = "learning_rate"
 
 # Sweep ranges for EPOCHS and SMOOTHNESS_WEIGHT
-EPOCHS_RANGE = [10]  # Example: [1, 3, 5] or use range(start, stop, step)
-SMOOTHNESS_WEIGHT_RANGE = [3e-9]
-LR_VALUES = [0.03]  # Example: [0.01, 0.03, 0.1]
+EPOCHS_RANGE = [3, 5, 10]  # Example: [1, 3, 5] or use range(start, stop, step)
+SMOOTHNESS_WEIGHT_RANGE = [1e-9, 3e-9, 5e-9, 1e-8, 3e-8, 5e-8, 1e-7, 3e-7, 5e-7]  # Example: [1e-9, 3e-9, 1e-8]
+LR_VALUES = [0.01, 0.03]  # Example: [0.01, 0.03, 0.1]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
