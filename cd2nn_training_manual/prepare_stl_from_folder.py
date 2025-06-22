@@ -16,7 +16,7 @@ matrix_size = (128, 128)  # px
 matrix_center = (matrix_size[0] / 2, matrix_size[1] / 2)  # Center of the matrix
 
 # Ensure lens diameter and other parameters are adjusted accordingly
-lens_diameter = 170  # mm (unchanged, but ensure compatibility with new matrix size)
+lens_diameter = 103  # mm (unchanged, but ensure compatibility with new matrix size)
 
 # Update sampling to match the new resolution
 sampling = 900  # um (unchanged, but ensure compatibility with new matrix size)
@@ -26,12 +26,12 @@ sampling = 900  # um (unchanged, but ensure compatibility with new matrix size)
 kolowa =  True       #False if square aperture  
 podstawa = 1                     #mm 
 
-ramka_width_mm = 5
+ramka_width_mm = 0
 ramka_width_px = ramka_width_mm*sampling/1000
 ramka_h_mm = 10
 ramka_h_px = ramka_h_mm*sampling/1000
 holder_h_px = ramka_h_px
-holder_lenght_mm = 0
+holder_lenght_mm = 10
 holder_width_mm = 20
 holder_lenght_px = holder_lenght_mm*sampling/1000
 holder_width_px = holder_width_mm*sampling/1000
@@ -97,7 +97,7 @@ for bmp_file in Path("./best_doe_masks").glob("*.bmp"):
                         obrazek[i, j] = obrazek[i, j]
 
     plt.imshow(obrazek)
-    plt.show()
+    # plt.show()
     # Surface of matrix_size
 
     import numpy as np

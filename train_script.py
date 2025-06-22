@@ -18,14 +18,15 @@ param_name = "learning_rate"
 
 # Sweep ranges for EPOCHS and SMOOTHNESS_WEIGHT
 EPOCHS_RANGE = [1, 2, 3, 5, 10]  # Example: [1, 3, 5] or use range(start, stop, step)
-SMOOTHNESS_WEIGHT_RANGE = [1e-9, 3e-9, 5e-9, 1e-8, 3e-8, 5e-8, 1e-7, 3e-7, 5e-7, 1e-6, 3e-6, 5e-6, 1e-5, 3e-5, 5e-5]  # Example: [1e-9, 3e-9, 1e-8]
-LR_VALUES = [0.01, 0.03]  # Example: [0.01, 0.03, 0.1]
+SMOOTHNESS_WEIGHT_RANGE = [3e-9, 4e-9, 5e-9]  # Example: [1e-9, 3e-9, 1e-8]
+LR_VALUES = [0.03]  # Example: [0.01, 0.03, 0.1]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 1
 CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
+REPEAT_COUNT = 3  # Number of times to repeat the whole training sweep
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_dir', type=str, default=None)
@@ -66,62 +67,63 @@ os.makedirs(MASK_SAVE_DIR, exist_ok=True)
 os.makedirs(PROP_OUTPUT_DIR, exist_ok=True)
 
 with open(RESULTS_CSV, "a") as results_file:
-    for epochs in EPOCHS_RANGE:
-        for smoothness_weight in SMOOTHNESS_WEIGHT_RANGE:
-            for val in LR_VALUES:
-                # 1. Run training
-                mask_unopt_path = os.path.join(MASK_SAVE_DIR, f"mask_unopt_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.bmp")
-                mask_opt_path = os.path.join(MASK_SAVE_DIR, f"mask_opt_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.bmp")
-                subprocess.run([
-                    "python", os.path.basename(TRAIN_SCRIPT),
-                    f"--{param_name}", str(val),
-                    "--save_mask_unopt", os.path.abspath(mask_unopt_path),
-                    "--input_dir", str(INPUT_DIR.resolve()),
-                    "--epochs", str(epochs),
-                    "--propagation_distance_between_doe", str(PROPAGATION_DISTANCE_BEETWEEN_DOE),
-                    "--propagation_distance_to_target", str(PROPAGATION_DISTANCE_TO_TARGET),
-                    "--num_layers", str(NUM_LAYERS),
-                    "--batch_size", str(BATCH_SIZE),
-                    "--callback_patience", str(CALLBACK_PATIENCE),
-                    "--callback_min_delta", str(CALLBACK_MIN_DELTA),
-                    "--smoothness_weight", str(smoothness_weight)
-                ], check=True, cwd=os.path.dirname(TRAIN_SCRIPT))
+    for repeat_idx in range(REPEAT_COUNT):
+        for epochs in EPOCHS_RANGE:
+            for smoothness_weight in SMOOTHNESS_WEIGHT_RANGE:
+                for val in LR_VALUES:
+                    # 1. Run training
+                    mask_unopt_path = os.path.join(MASK_SAVE_DIR, f"mask_unopt_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}_rep{repeat_idx}.bmp")
+                    mask_opt_path = os.path.join(MASK_SAVE_DIR, f"mask_opt_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}_rep{repeat_idx}.bmp")
+                    subprocess.run([
+                        "python", os.path.basename(TRAIN_SCRIPT),
+                        f"--{param_name}", str(val),
+                        "--save_mask_unopt", os.path.abspath(mask_unopt_path),
+                        "--input_dir", str(INPUT_DIR.resolve()),
+                        "--epochs", str(epochs),
+                        "--propagation_distance_between_doe", str(PROPAGATION_DISTANCE_BEETWEEN_DOE),
+                        "--propagation_distance_to_target", str(PROPAGATION_DISTANCE_TO_TARGET),
+                        "--num_layers", str(NUM_LAYERS),
+                        "--batch_size", str(BATCH_SIZE),
+                        "--callback_patience", str(CALLBACK_PATIENCE),
+                        "--callback_min_delta", str(CALLBACK_MIN_DELTA),
+                        "--smoothness_weight", str(smoothness_weight)
+                    ], check=True, cwd=os.path.dirname(TRAIN_SCRIPT))
 
-                # 2. Optimize mask
-                phase_unopt = np.array(Image.open(mask_unopt_path))
-                phase_opt = periodic_phase_optimization(phase_unopt).numpy()
-                # np.save(mask_opt_path, phase_opt)  # Removed to prevent saving large .npy files in masks folder
+                    # 2. Optimize mask
+                    phase_unopt = np.array(Image.open(mask_unopt_path))
+                    phase_opt = periodic_phase_optimization(phase_unopt).numpy()
+                    # np.save(mask_opt_path, phase_opt)  # Removed to prevent saving large .npy files in masks folder
 
-                for mask_path, mask_label in [(mask_unopt_path, "unopt"), (mask_opt_path, "opt")]:
-                    # 4. Run propagation simulation
-                    output_path = os.path.join(PROP_OUTPUT_DIR, f"output_{mask_label}_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}.npy")
-                    try:
-                        result = subprocess.run([
-                            "python", os.path.basename(PROP_SCRIPT),
-                            "--mask_path", os.path.abspath(mask_path),
-                            "--output_path", os.path.abspath(output_path)
-                        ], check=True, cwd=os.path.dirname(PROP_SCRIPT), capture_output=True, text=True)
-                        if result.returncode != 0:
-                            print(f"Propagation script failed for {mask_path}. STDERR:\n{result.stderr}")
-                            continue
-                    except subprocess.CalledProcessError as e:
-                        print(f"Propagation script failed for {mask_path}. STDERR:\n{e.stderr}")
-                        continue
-                    if not os.path.exists(output_path):
-                        print(f"Propagation output file not found: {output_path}")
-                        continue
-                    # 5. Load output and log max values
-                    try:
-                        output = np.load(output_path, allow_pickle=True).item()
-                        max_intensity = np.max(output["intensity"])
-                        max_amplitude = np.max(output["amplitude"])
-                        # Delete the .npy file after reading
+                    for mask_path, mask_label in [(mask_unopt_path, "unopt"), (mask_opt_path, "opt")]:
+                        # 4. Run propagation simulation
+                        output_path = os.path.join(PROP_OUTPUT_DIR, f"output_{mask_label}_{val:.4f}_ep{epochs}_sm{smoothness_weight:.0e}_rep{repeat_idx}.npy")
                         try:
-                            os.remove(output_path)
+                            result = subprocess.run([
+                                "python", os.path.basename(PROP_SCRIPT),
+                                "--mask_path", os.path.abspath(mask_path),
+                                "--output_path", os.path.abspath(output_path)
+                            ], check=True, cwd=os.path.dirname(PROP_SCRIPT), capture_output=True, text=True)
+                            if result.returncode != 0:
+                                print(f"Propagation script failed for {mask_path}. STDERR:\n{result.stderr}")
+                                continue
+                        except subprocess.CalledProcessError as e:
+                            print(f"Propagation script failed for {mask_path}. STDERR:\n{e.stderr}")
+                            continue
+                        if not os.path.exists(output_path):
+                            print(f"Propagation output file not found: {output_path}")
+                            continue
+                        # 5. Load output and log max values
+                        try:
+                            output = np.load(output_path, allow_pickle=True).item()
+                            max_intensity = np.max(output["intensity"])
+                            max_amplitude = np.max(output["amplitude"])
+                            # Delete the .npy file after reading
+                            try:
+                                os.remove(output_path)
+                            except Exception as e:
+                                print(f"Warning: Could not delete {output_path}: {e}")
+                            results_file.write(f"{repeat_idx},{val},{epochs},{smoothness_weight},{mask_label},{max_intensity},{max_amplitude}\n")
+                            results_file.flush()
                         except Exception as e:
-                            print(f"Warning: Could not delete {output_path}: {e}")
-                        results_file.write(f"{val},{epochs},{smoothness_weight},{mask_label},{max_intensity},{max_amplitude}\n")
-                        results_file.flush()
-                    except Exception as e:
-                        print(f"Failed to load or process output file {output_path}: {e}")
-                        continue
+                            print(f"Failed to load or process output file {output_path}: {e}")
+                            continue
