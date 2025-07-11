@@ -37,21 +37,24 @@ def generate_gaussian_targets(filename):
     plt.close()
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_rings=64):
+def generate_thz_inputs(folder, num_rings=2000):
     folder.mkdir(parents=True, exist_ok=True)
 
-    for r in range(1, num_rings+1):
+    for i in range(num_rings):
         aperture_mask = np.zeros((H, W), dtype=np.float32)
         center_x, center_y = W // 2, H // 2
         y_indices, x_indices = np.ogrid[:H, :W]
         distance_from_center = np.sqrt((x_indices - center_x)**2 + (y_indices - center_y)**2)
-        # Grubość pierścienia 2px
-        aperture_mask[(distance_from_center >= r - 1) & (distance_from_center < r + 4)] = 1
+        # Random radius from 2 to 128 px
+        r = np.random.randint(2, 52)
+        # Random width between 3 and 8 px
+        width = np.random.randint(1, 12)
+        aperture_mask[(distance_from_center >= r) & (distance_from_center < r + width)] = 1
 
         field = aperture_mask
-        bmp_filename = folder / f"field_{(r-1):04d}.bmp"
+        bmp_filename = folder / f"field_{i:04d}.bmp"
         plt.imsave(bmp_filename, field, cmap='gray')
-        print(f"Saved THz input ring r={r} as grayscale BMP to {bmp_filename}")
+        print(f"Saved THz input ring {i} radius={r} width={width} as grayscale BMP to {bmp_filename}")
 
     print("Pierścienie wygenerowane.")
 
