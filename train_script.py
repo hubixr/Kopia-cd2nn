@@ -17,15 +17,15 @@ RESULTS_CSV = "results.csv"
 param_name = "learning_rate"
 
 # Sweep ranges for EPOCHS and SMOOTHNESS_WEIGHT
-EPOCHS_RANGE = [3]  # Example: [1, 3, 5] or use range(start, stop, step)
+EPOCHS_RANGE = [100]  # Example: [1, 3, 5] or use range(start, stop, step)
 SMOOTHNESS_WEIGHT_RANGE = [3e-9]  # Example: [1e-9, 3e-9, 1e-8]
 LR_VALUES = [0.03]  # Example: [0.01, 0.03, 0.1]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 2
+NUM_LAYERS = 1
 BATCH_SIZE = 8
-CALLBACK_PATIENCE = 1
-CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
+CALLBACK_PATIENCE = 5
+CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-5
 REPEAT_COUNT = 1  # Number of times to repeat the whole training sweep
 
 parser = argparse.ArgumentParser()

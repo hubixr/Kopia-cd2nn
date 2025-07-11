@@ -45,16 +45,16 @@ def generate_thz_inputs(folder, num_rings=2000):
         center_x, center_y = W // 2, H // 2
         y_indices, x_indices = np.ogrid[:H, :W]
         distance_from_center = np.sqrt((x_indices - center_x)**2 + (y_indices - center_y)**2)
-        # Random radius from 2 to 128 px
-        r = np.random.randint(2, 52)
-        # Random width between 3 and 8 px
-        width = np.random.randint(1, 12)
-        aperture_mask[(distance_from_center >= r) & (distance_from_center < r + width)] = 1
+        # Generate 5 random rings per sample
+        for _ in range(3):
+            r = np.random.randint(0, 61)
+            width = np.random.randint(3, 6)
+            aperture_mask[(distance_from_center >= r) & (distance_from_center < r + width)] = 1
 
         field = aperture_mask
         bmp_filename = folder / f"field_{i:04d}.bmp"
         plt.imsave(bmp_filename, field, cmap='gray')
-        print(f"Saved THz input ring {i} radius={r} width={width} as grayscale BMP to {bmp_filename}")
+        print(f"Saved THz input with 5 random rings as grayscale BMP to {bmp_filename}")
 
     print("Pierścienie wygenerowane.")
 
