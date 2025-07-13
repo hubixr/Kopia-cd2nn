@@ -98,7 +98,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         im_u = tf.keras.layers.ZeroPadding2D(padding=(size, size))(im_u)
         re_u = tf.squeeze(re_u, axis=-1)
         im_u = tf.squeeze(im_u, axis=-1)
-
+        print("re_u shape after padding:", re_u.shape)
         # Ensure padded inputs are finite
         tf.debugging.assert_all_finite(re_u, "NaN or Inf detected in padded re_u")
         tf.debugging.assert_all_finite(im_u, "NaN or Inf detected in padded im_u")
