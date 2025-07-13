@@ -110,10 +110,10 @@ class PropagationLayer(tf.keras.layers.Layer):
         h_imag_frequency = tf.cast(self.h_imag[None, :, :H_padding], tf.complex64)
 
         # Perform FFT-based convolutions with normalization
-        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency) / tf.sqrt(N**3)
-        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency) / tf.sqrt(N**3)
-        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency) / tf.sqrt(N**3)
-        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) / tf.sqrt(N**3)
+        re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_frequency)  
+        im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_frequency)  
+        re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_frequency)  
+        im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_frequency) 
         # tf.print("re_re min:", tf.reduce_min(re_re), "max:", tf.reduce_max(re_re))
 
         print("End of convolutions")
@@ -148,8 +148,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = tf.squeeze(out_real, axis=-1)
         out_imag = tf.squeeze(out_imag, axis=-1)
         #normalize the outputs
-        out_real = out_real / tf.reduce_max(out_real)
-        out_imag = out_imag / tf.reduce_max(out_imag)
+        # out_real = out_real / tf.reduce_max(out_real)
+        # out_imag = out_imag / tf.reduce_max(out_imag)
         # Ensure outputs are finite after cropping
         tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real after cropping")
         tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag after cropping")

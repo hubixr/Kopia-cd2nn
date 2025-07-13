@@ -28,7 +28,7 @@ Outputs:
 
 class CDNNModel(tf.keras.Model):
 
-    def __init__(self, num_layers, shape, wavelength, distance_between_layers, distance_to_plane, pixel_size, name=None):
+    def __init__(self, num_layers, shape, wavelength, distance_to_plane, distance_between_layers, pixel_size, name=None):
         super(CDNNModel, self).__init__(name=name)
         self.shape_ = shape
         self.doe_layers = []
@@ -58,7 +58,7 @@ class CDNNModel(tf.keras.Model):
         U_real = field[..., 0]
         U_imag = field[..., 1]
         intensity = tf.square(U_real)+tf.square(U_imag)  # intensity = |U|^2
-        intensity = intensity / tf.reduce_max(intensity)  # Normalize intensity
+        # intensity = intensity / tf.reduce_max(intensity)  # Normalize intensity
         print(
             "Intensity min:", tf.reduce_min(intensity),
             "max:", tf.reduce_max(intensity),
@@ -66,7 +66,7 @@ class CDNNModel(tf.keras.Model):
         )
         # print("Intensity shape:", intensity.shape)
         amplitude = tf.sqrt(intensity)
-        amplitude = amplitude / tf.reduce_max(amplitude)
+        # amplitude = amplitude / tf.reduce_max(amplitude)
         # print("Amplitude shape:", amplitude.shape)
         print(
             "Amplitude min:", tf.reduce_min(amplitude),
