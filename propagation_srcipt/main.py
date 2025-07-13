@@ -143,11 +143,11 @@ for i in range(num_masks):
     if i == 0:
         output_intensities = []
     output_intensity = out_real_cropped**2 + out_imag_cropped**2
-    output_intensity = output_intensity / output_intensity.max()  # Normalize to [0,1]
+    # output_intensity = output_intensity / output_intensity.max()  # Normalize to [0,1] (disabled)
     output_intensities.append(output_intensity)
 
     # Save the output field (intensity) as a colormap image (hot colormap)
-    output_colormap = plt.get_cmap('hot')(output_intensity)
+    output_colormap = plt.get_cmap('hot')(output_intensity / output_intensity.max() if output_intensity.max() > 0 else output_intensity)
     output_colormap_img = (output_colormap[..., :3] * 255).astype(np.uint8)  # Drop alpha, scale to [0,255]
 
     results_dir = Path('results_between')

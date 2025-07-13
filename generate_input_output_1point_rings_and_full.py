@@ -69,9 +69,12 @@ def generate_circle_inputs(folder, num_circles, start_idx=num_rings):
         y_indices, x_indices = np.ogrid[:H, :W]
         distance_from_center = np.sqrt((x_indices - center_x)**2 + (y_indices - center_y)**2)
         radius = np.random.randint(1, 65)  # Random radius from 1 to 64
+        circle_mask[distance_from_center <= radius] = 1
         idx = start_idx + i
         bmp_filename = folder / f"field_{idx:04d}.bmp"
-        plt.imsave(bmp_filename, circle_mask, cmap='gray')
+        # Debug: print nonzero count for each mask
+        print(f"Circle {i}: radius={radius}, nonzero pixels={np.count_nonzero(circle_mask)}")
+        plt.imsave(bmp_filename, circle_mask, cmap='gray', vmin=0, vmax=1)
         print(f"Saved circle input with radius {radius} as grayscale BMP to {bmp_filename}")
     print("Koła wygenerowane.")
 
@@ -81,10 +84,7 @@ if __name__ == "__main__":
     # generate_gaussian_targets(output_folder / "target_field")  # Disabled target field generation
     input_fields_folder = output_folder / "input_fields"
     generate_thz_inputs(input_fields_folder, num_rings)
-    # Count how many files already exist in input_fields_folder
-    existing_files = list(input_fields_folder.glob('field_*.bmp'))
-    start_idx = len(existing_files)
-    generate_circle_inputs(input_fields_folder, num_circles, start_idx=start_idx)
+    generate_circle_inputs(input_fields_folder, num_circles, start_idx=num_rings)
 
     # Visualize the first 10 inputs and targets on one graph
     input_folder = output_folder / "input_fields"
