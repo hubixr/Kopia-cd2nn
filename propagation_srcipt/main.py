@@ -10,7 +10,7 @@ PIXEL_SIZE = 9e-4  # [m]
 FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
-DISTANCE = 0.101 #[m]
+DISTANCE_BETWEEN_DOE = 0.0201 #[m]
 DISTANCE_TO_TARGET = 0.201 #[m]
 PADDING_MULTIPLIER = 4  # Padding multiplier for the propagation layer
 H_BEFORE_PADDING, W_BEFORE_PADDING = 128, 128  # Size of the image in pixels before padding
@@ -74,8 +74,10 @@ print(f'U_padded shape: {U_padded.shape}')
 for i in range(num_masks):
     if i == num_masks-1 :
         distance = DISTANCE_TO_TARGET  # Last mask uses distance to target
+        print("Using distance to target for the last mask")
     else:
-        distance = DISTANCE  # Other masks use the initial distance
+        distance = DISTANCE_BETWEEN_DOE  # Other masks use the initial distance
+        print(f"Using distance between DOE for mask {i + 1}")
     print(f"Processing mask {i + 1}/{num_masks} with distance {distance:.3f} m")
     re_u = U_padded[..., 0]
     im_u = U_padded[..., 1]

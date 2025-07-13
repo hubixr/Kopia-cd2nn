@@ -37,7 +37,7 @@ def generate_gaussian_targets(filename):
     plt.close()
 
 # --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=1):
+def generate_thz_inputs(folder, num_samples=1000):
     folder.mkdir(parents=True, exist_ok=True)
 
     for i in range(num_samples):
@@ -64,38 +64,20 @@ def generate_thz_inputs(folder, num_samples=1):
 if __name__ == "__main__":
     os.makedirs("./cdnn_data", exist_ok=True)
     output_folder = Path("./cdnn_data")
-    generate_gaussian_targets(output_folder / "target_field")
+    # generate_gaussian_targets(output_folder / "target_field")  # Disabled target field generation
     generate_thz_inputs(output_folder / "input_fields")
 
-    # Visualize the first 10 inputs and targets on one graph
+    # Visualize the first 10 inputs on one graph
     input_folder = output_folder / "input_fields"
-    target_file = output_folder / "target_field.bmp"
-
-    # Update to load the target field from the BMP file instead of .npy
-    bmp_target_file = output_folder / "target_field.bmp"
-    target_field = plt.imread(bmp_target_file)  # Load BMP file as an array
-
-    # Normalize the target field to [0, 1] if needed
-    target_field = target_field / 255.0 if target_field.max() > 1 else target_field
-
-    # # Plot the target field
-    plt.figure(figsize=(15, 10))
-    plt.subplot(3, 4, 1)
-    plt.imshow(target_field, cmap='hot', extent=[x[0], x[-1], y[0], y[-1]])
-    plt.title("Target Gaussian Spot")
-    plt.colorbar()
-
-    # Plot the first 10 input fields
+    plt.figure(figsize=(15, 6))
     for i in range(10):
         bmp_input_file = input_folder / f"field_{i:04d}.bmp"
-        input_field = Image.open(bmp_input_file).convert('L')  # Load BMP file as grayscale
-        input_field = np.array(input_field, dtype=np.float32) / 255.0  # Normalize to [0, 1]
+        input_field = Image.open(bmp_input_file).convert('L')
+        input_field = np.array(input_field, dtype=np.float32) / 255.0
 
-        # Plot the input field
-        plt.subplot(3, 4, i + 2)
+        plt.subplot(2, 5, i + 1)
         plt.imshow(input_field, cmap='viridis', extent=[x[0], x[-1], y[0], y[-1]])
         plt.title(f"Input Field {i}")
         plt.colorbar()
-
     plt.tight_layout()
     plt.show()
