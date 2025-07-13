@@ -10,8 +10,8 @@ PIXEL_SIZE = 9e-4  # [m]
 FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
-DISTANCE = 0.2 #[m]
-DISTANCE_TO_TARGET = 0.2 #[m]
+DISTANCE = 0.101 #[m]
+DISTANCE_TO_TARGET = 0.201 #[m]
 PADDING_MULTIPLIER = 4  # Padding multiplier for the propagation layer
 H_BEFORE_PADDING, W_BEFORE_PADDING = 128, 128  # Size of the image in pixels before padding
 H = 128 * (PADDING_MULTIPLIER + 1)
@@ -70,12 +70,13 @@ pad_size = int(H / (PADDING_MULTIPLIER + 1) * PADDING_MULTIPLIER / 2)
 U_padded = np.pad(U, ((pad_size, pad_size), (pad_size, pad_size), (0, 0)), mode='constant')
 print(f'U_padded shape: {U_padded.shape}')
 
+
 for i in range(num_masks):
     if i == num_masks - 1:
         distance = DISTANCE_TO_TARGET  # Last mask uses distance to target
     else:
         distance = DISTANCE  # Other masks use the initial distance
-
+    print(f"Processing mask {i + 1}/{num_masks} with distance {distance:.3f} m")
     re_u = U_padded[..., 0]
     im_u = U_padded[..., 1]
     phase = np.pad(phase_masks[i], ((pad_size, pad_size), (pad_size, pad_size)), mode='constant')
@@ -105,10 +106,10 @@ for i in range(num_masks):
     N = re_u.shape[0]  # Assuming square input for simplicity
     print("Convolution with phase mask", i + 1)
     # Use complex FFT for correct shape and propagation
-    re_re = np.real(ifft2(fft2(re_u) * h)) / np.sqrt(N**3)
-    im_im = np.real(ifft2(fft2(im_u) * h)) / np.sqrt(N**3)
-    re_im = np.real(ifft2(fft2(re_u) * h)) / np.sqrt(N**3)
-    im_re = np.real(ifft2(fft2(im_u) * h)) / np.sqrt(N**3)
+    re_re = np.real(ifft2(fft2(re_u) * h_real)) / np.sqrt(N**3)
+    im_im = np.real(ifft2(fft2(im_u) * h_imag)) / np.sqrt(N**3)
+    re_im = np.real(ifft2(fft2(re_u) * h_real)) / np.sqrt(N**3)
+    im_re = np.real(ifft2(fft2(im_u) * h_imag)) / np.sqrt(N**3)
 
     out_real = re_re - im_im
     out_imag = re_im + im_re
@@ -120,6 +121,14 @@ for i in range(num_masks):
     crop_w_end = pad_size + W_BEFORE_PADDING
     out_real_cropped = out_real[crop_h_start:crop_h_end, crop_w_start:crop_w_end]
     out_imag_cropped = out_imag[crop_h_start:crop_h_end, crop_w_start:crop_w_end]
+
+    # Calculate and print power before and after cropping
+    power_before = np.sum(out_real**2 + out_imag**2)
+    power_after = np.sum(out_real_cropped**2 + out_imag_cropped**2)
+    percent_lost = 100 * (power_before - power_after) / power_before if power_before > 0 else 0
+    print(f"Power before cropping: {power_before:.6f}")
+    print(f"Power after cropping: {power_after:.6f}")
+    print(f"Percentage of power lost: {percent_lost:.2f}%")
 
     # For next propagation step, pad back to padded size (except after last mask)
     if i < num_masks - 1:
@@ -145,6 +154,19 @@ for i in range(num_masks):
     results_dir.mkdir(exist_ok=True)
     output_img = Image.fromarray(output_colormap_img)
     output_img.save(results_dir / f'cmap_after_mask_{i+1}.png')
+
+    # Plot intensity cross-section through the center (y=64)
+    center_y = output_intensity.shape[0] // 2
+    plt.figure(figsize=(8, 4))
+    plt.plot(output_intensity[center_y, :], label=f'Output after mask {i+1} (y={center_y})')
+    plt.title(f'Intensity cross-section (y={center_y}) after mask {i+1}')
+    plt.xlabel('x')
+    plt.ylabel('Normalized intensity')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(results_dir / f'cross_section_y{center_y}_after_mask_{i+1}.png')
+    plt.close()
 
     # After all iterations, plot all outputs in one plot
     if i == num_masks - 1:
