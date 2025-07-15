@@ -56,7 +56,7 @@ class CDNNModel(tf.keras.Model):
         U_real = field[..., 0]
         U_imag = field[..., 1]
         intensity = tf.square(U_real)+tf.square(U_imag)  # intensity = |U|^2
-        intensity = intensity / 100.0
+        intensity = intensity 
         # tf.print("Intensity min:", tf.reduce_min(intensity),
         #       "max:", tf.reduce_max(intensity),
         #       "mean:", tf.reduce_mean(intensity))

@@ -148,8 +148,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = tf.squeeze(out_real, axis=-1)
         out_imag = tf.squeeze(out_imag, axis=-1)
         #normalize the outputs
-        # out_real = out_real / tf.reduce_max(out_real)
-        # out_imag = out_imag / tf.reduce_max(out_imag)
+        out_real = out_real / tf.reduce_max(out_real)
+        out_imag = out_imag / tf.reduce_max(out_imag)
         # Ensure outputs are finite after cropping
         tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real after cropping")
         tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag after cropping")

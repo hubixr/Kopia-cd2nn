@@ -61,11 +61,30 @@ def generate_thz_inputs(folder, num_samples=2000):
         print(f"Saved THz input field {i} as grayscale BMP to {bmp_filename}")
 
     print("umin=", field.min())
+
+# --- 3. Generowanie x pól Gaussa jako wejścia ---
+def generate_gaussian_inputs(folder, num_samples=2000):
+    folder.mkdir(parents=True, exist_ok=True)
+    for i in range(num_samples):
+        # Randomize sigma for radius in range 32-64 px (sigma ~ radius/2)
+        radius_px = np.random.randint(32, 65)  # 32 to 64 px
+        sigma = radius_px / 2 * px_size_mm  # convert px to mm
+        center = [0, 0]  # Center at (0,0) mm
+        cov = [[sigma**2, 0], [0, sigma**2]]
+        rv = multivariate_normal(mean=center, cov=cov)
+        gaussian_map = rv.pdf(np.stack([X.ravel(), Y.ravel()], axis=1)).reshape(H, W)
+        gaussian_map /= gaussian_map.max()  # Normalize to [0, 1]
+        bmp_filename = folder / f"field_{i:04d}.bmp"
+        plt.imsave(bmp_filename, gaussian_map, cmap='gray')
+        print(f"Saved Gaussian input field {i} (radius ~{radius_px}px, sigma={sigma:.2f}mm) as grayscale BMP to {bmp_filename}")
+    print("umin=", gaussian_map.min())
+
 if __name__ == "__main__":
     os.makedirs("./cdnn_data", exist_ok=True)
     output_folder = Path("./cdnn_data")
     # generate_gaussian_targets(output_folder / "target_field")  # Disabled target field generation
-    generate_thz_inputs(output_folder / "input_fields")
+    # generate_thz_inputs(output_folder / "input_fields")  # Disabled circle input generation
+    generate_gaussian_inputs(output_folder / "input_fields")
 
     # Visualize the first 10 inputs on one graph
     input_folder = output_folder / "input_fields"

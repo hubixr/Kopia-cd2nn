@@ -24,13 +24,13 @@ WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.02  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 5
-EPOCHS = 100
+NUM_LAYERS = 1
+EPOCHS = 10
 LEARNING_RATE = 0.03
 BATCH_SIZE = 8
-CALLBACK_PATIENCE = 2
-CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
-SMOOTHNESS_WEIGHT = 3e-9 #def 1e-7
+CALLBACK_PATIENCE = 5
+CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-5
+SMOOTHNESS_WEIGHT = 1e-8 #def 1e-7
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -274,16 +274,41 @@ print("y_train range:", y_train.min(), y_train.max())
 print("x_test range:", x_test.min(), x_test.max())
 print("y_test range:", y_test.min(), y_test.max())
 
+class PhaseHistogramCallback(tf.keras.callbacks.Callback):
+    def __init__(self, every_n_epochs=10):
+        super().__init__()
+        self.every_n_epochs = every_n_epochs
+
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % self.every_n_epochs == 0:
+            for i, layer in enumerate(self.model.doe_layers):
+                phase_vals = layer.phase.numpy().flatten()
+                plt.figure(figsize=(6, 3))
+                plt.hist(phase_vals, bins=100)
+                plt.title(f'Histogram fazy DOE {i+1} – epoka {epoch}')
+                plt.xlabel('Faza [rad]')
+                plt.ylabel('Liczność')
+                plt.grid(True)
+                plt.show()
+
 print("Trenowanie modelu...")
 callback = tf.keras.callbacks.EarlyStopping(
     monitor='loss',  # Monitor the loss
     min_delta=CALLBACK_MIN_DELTA,  # Minimum change in loss to qualify as an improvement
     patience= CALLBACK_PATIENCE,      # Number of epochs with no improvement after which training will stop
-    restore_best_weights=True  # Restore the weights of the best epoch
+    restore_best_weights=True,  # Restore the weights of the best epoch
 )
+
 start_time = time.time()
-history = model.fit(train_dataset, validation_data=val_dataset, epochs=EPOCHS, callbacks=[callback], verbose=1)
+history = model.fit(
+    train_dataset,
+    validation_data=val_dataset,
+    epochs=EPOCHS,
+    callbacks=[callback, PhaseHistogramCallback()],
+    verbose=1
+)
 model.summary()
+
 keras.utils.plot_model(model, show_shapes=True, to_file='model_plot.png')
 end_time = time.time()
 print(f"Model training time: {end_time - start_time:.2f} seconds")

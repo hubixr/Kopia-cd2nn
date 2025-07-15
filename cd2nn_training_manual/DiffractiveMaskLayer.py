@@ -51,7 +51,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         self.phase = self.add_weight(
             name="phase",
             shape=self.shape_,
-            initializer=tf.keras.initializers.Constant(0),  # Initialize with zeros
+            initializer=tf.keras.initializers.RandomUniform(minval=0, maxval=2 * np.pi),
             trainable=True
         )
         super(DiffractiveMaskLayer, self).build(input_shape)
