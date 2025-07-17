@@ -25,12 +25,14 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.02  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 1
-EPOCHS = 10
-LEARNING_RATE = 0.03
-BATCH_SIZE = 8
-CALLBACK_PATIENCE = 5
-CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-5
-SMOOTHNESS_WEIGHT = 1e-8 #def 1e-7
+EPOCHS = 20
+LEARNING_RATE = 0.1
+BATCH_SIZE = 1
+CALLBACK_PATIENCE = 3
+CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
+SMOOTHNESS_WEIGHT = 5e-8 #def 1e-7
+POWER_LOSS_WEIGHT = 2
+FOCAL_INTENSITY_WEIGHT = 10
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -207,6 +209,7 @@ def calculate_power(y):
     return tf.reduce_sum(tf.square(y), axis=[1, 2])
 
 lambda_smooth = SMOOTHNESS_WEIGHT  # Weight for smoothness regularization def 1e-6
+lambda_power = POWER_LOSS_WEIGHT
 def smoothness_regularization(phase):
     """
     Compute the smoothness regularization term for the phase mask using L2 difference with 8 neighbors.
@@ -232,16 +235,9 @@ def smoothness_regularization(phase):
     for n in neighbors:
         smoothness_term += tf.reduce_sum(tf.square(center - n))
     return smoothness_term
+
 def custom_loss_with_model(model):
     def custom_loss(y_true, y_pred):
-        
-        # Custom loss function with smoothness regularization.
-        # Args:
-        #     y_true: Ground truth target.
-        #     y_pred: Predicted output.
-        # Returns:
-        #     Total loss (scalar).
-        
         # Compute the standard loss (e.g., Mean Squared Error)
         mse_loss = tf.reduce_mean(tf.square(y_true - y_pred))
 
@@ -249,9 +245,27 @@ def custom_loss_with_model(model):
         smoothness_loss = 0
         for layer in model.doe_layers:
             smoothness_loss += smoothness_regularization(layer.phase)
+        power_loss = tf.reduce_mean(model.last_power_loss)
 
-        # Combine the losses
-        total_loss = mse_loss + lambda_smooth * smoothness_loss
+        # Focal intensity: mean value in a 10x10 px window at the center of the field
+        shape = tf.shape(y_pred)
+        center_y = shape[1] // 2
+        center_x = shape[2] // 2
+        window_size = 4
+        half_window = window_size // 2
+        # Slicing: [center_y-half_window:center_y+half_window, center_x-half_window:center_x+half_window]
+        focal_patch = y_pred[:, 
+                             center_y-half_window:center_y+half_window, 
+                             center_x-half_window:center_x+half_window]
+        focal_intensity = tf.reduce_mean(focal_patch) 
+
+        # Combine the losses (add a negative sign to maximize focal intensity)
+        total_loss = (
+            mse_loss
+            + lambda_smooth * smoothness_loss
+            + lambda_power * power_loss
+            - FOCAL_INTENSITY_WEIGHT * focal_intensity  # Adjust weight as needed
+        )
         return total_loss
 
     return custom_loss
@@ -274,22 +288,31 @@ print("y_train range:", y_train.min(), y_train.max())
 print("x_test range:", x_test.min(), x_test.max())
 print("y_test range:", y_test.min(), y_test.max())
 
+from pathlib import Path
+
 class PhaseHistogramCallback(tf.keras.callbacks.Callback):
-    def __init__(self, every_n_epochs=10):
+    def __init__(self, save_dir='phase_histograms'):
         super().__init__()
-        self.every_n_epochs = every_n_epochs
+        self.save_dir = Path(save_dir)
+        self.save_dir.mkdir(exist_ok=True)
 
     def on_epoch_end(self, epoch, logs=None):
-        if epoch % self.every_n_epochs == 0:
-            for i, layer in enumerate(self.model.doe_layers):
-                phase_vals = layer.phase.numpy().flatten()
-                plt.figure(figsize=(6, 3))
-                plt.hist(phase_vals, bins=100)
-                plt.title(f'Histogram fazy DOE {i+1} – epoka {epoch}')
-                plt.xlabel('Faza [rad]')
-                plt.ylabel('Liczność')
-                plt.grid(True)
-                plt.show()
+        num_layers = len(self.model.doe_layers)
+        fig, axes = plt.subplots(1, num_layers, figsize=(6 * num_layers, 3))
+        if num_layers == 1:
+            axes = [axes]
+        for i, layer in enumerate(self.model.doe_layers):
+            phase_vals = layer.phase.numpy().flatten()
+            axes[i].hist(phase_vals, bins=100)
+            axes[i].set_title(f'Histogram fazy DOE {i+1} – epoka {epoch}')
+            axes[i].set_xlabel('Faza [rad]')
+            axes[i].set_ylabel('Liczność')
+            axes[i].grid(True)
+        plt.tight_layout()
+        out_path = self.save_dir / f'phase_hist_epoch_{epoch:04d}.png'
+        plt.savefig(out_path)
+        plt.close(fig)
+        print(f"Saved phase histogram(s) for epoch {epoch} to {out_path}")
 
 print("Trenowanie modelu...")
 callback = tf.keras.callbacks.EarlyStopping(

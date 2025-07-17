@@ -33,15 +33,17 @@ class CDNNModel(tf.keras.Model):
         self.shape_ = shape
         self.doe_layers = []
         self.prop_layers = []
-
+        init_value = 'random_small'  # Initialize with small random values
         for i in range(num_layers - 1):
-            self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{i + 1}"))
+            init_value = 'random_small'
+            print(f"Layer {i + 1}: DOE + Propagation z={distance_between_layers} m init={init_value}")
+            self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{i + 1}", init=init_value))
             self.prop_layers.append(PropagationLayer(
                 wavelength, distance_between_layers, pixel_size, shape, name=f"prop_{i + 1}"
             ))
             print(f"Layer {i + 1}: DOE + Propagation z={distance_between_layers} m")
 
-        self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{num_layers}"))
+        self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{num_layers}", init=init_value))
         self.prop_layers.append(PropagationLayer(wavelength, distance_to_plane, pixel_size, shape, name=f"prop_{num_layers}"))
         print(f"Final Layer: DOE + Propagation z={distance_to_plane} m")
 
@@ -52,7 +54,7 @@ class CDNNModel(tf.keras.Model):
         for i, (doe, prop) in enumerate(zip(self.doe_layers, self.prop_layers)):
             field = doe(field)
             field = prop(field)
-
+        self.last_power_loss = self.prop_layers[-1].power_loss  # shape: (batch,)
         U_real = field[..., 0]
         U_imag = field[..., 1]
         intensity = tf.square(U_real)+tf.square(U_imag)  # intensity = |U|^2

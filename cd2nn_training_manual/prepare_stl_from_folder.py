@@ -23,7 +23,7 @@ sampling = 900  # um (unchanged, but ensure compatibility with new matrix size)
 
 # Adjust other parameters if necessary to ensure compatibility with the new resolution
 
-kolowa =  True       #False if square aperture  
+kolowa =  False       #False if square aperture  
 podstawa = 1                     #mm 
 
 ramka_width_mm = 4

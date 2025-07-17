@@ -33,7 +33,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         self.pixel_size = pixel_size
         self.shape_ = shape
         self.H, self.W = shape
-        self.padding_multiplier = 4
+        self.power_loss = None  # Placeholder for power loss
+        self.padding_multiplier = 8
 
     def build(self, input_shape):
         self.H = self.H * (self.padding_multiplier + 1)
@@ -87,7 +88,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         tf.debugging.assert_all_finite(re_u, "NaN or Inf detected in re_u after replacement")
         tf.debugging.assert_all_finite(im_u, "NaN or Inf detected in im_u after replacement")
 
-        # power_before = tf.reduce_sum(re_u**2 + im_u**2)
+        input_power = tf.reduce_sum(re_u**2 + im_u**2)
+        print("Power before propagation:", input_power)
         # size = int(re_u.shape[1] / 2) # old padding sieze
         size = int(self.H / (self.padding_multiplier+1) * self.padding_multiplier/2) # new padding size
 
@@ -118,6 +120,10 @@ class PropagationLayer(tf.keras.layers.Layer):
 
         print("End of convolutions")
 
+        output_power = tf.reduce_sum(re_re**2 + im_im**2)
+        print("Power after propagation:", output_power)
+        self.power_loss = ((input_power - output_power) / input_power)
+        # tf.print("Power loss percentage:", (self.power_loss * 100), " %")
         # Compute real and imaginary parts of the output
         out_real = re_re - im_im
         out_imag = re_im + im_re
@@ -148,8 +154,9 @@ class PropagationLayer(tf.keras.layers.Layer):
         out_real = tf.squeeze(out_real, axis=-1)
         out_imag = tf.squeeze(out_imag, axis=-1)
         #normalize the outputs
-        out_real = out_real / tf.reduce_max(out_real)
-        out_imag = out_imag / tf.reduce_max(out_imag)
+        epsilon = 1e-14
+        out_real = out_real / (tf.reduce_max(tf.abs(out_real)) + epsilon)
+        out_imag = out_imag / (tf.reduce_max(tf.abs(out_imag)) + epsilon)
         # Ensure outputs are finite after cropping
         tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real after cropping")
         tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag after cropping")

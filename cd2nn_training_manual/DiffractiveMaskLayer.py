@@ -41,17 +41,31 @@ def load_bmp_as_input(file_path, target_shape):
     return image_array
 
 class DiffractiveMaskLayer(tf.keras.layers.Layer):
-    def __init__(self, shape, name=None):
+    def __init__(self, shape, name=None, init='zero'):
         super(DiffractiveMaskLayer, self).__init__(name=name)
         self.shape_ = shape
+        self.init_ = init
 
     def build(self, input_shape):
         # Initialize phase as a trainable weight
         phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)
+        if self.init_ == 'random_small':
+            initializer = tf.keras.initializers.RandomUniform(0.0, 2 * np.pi, seed=42)
+        elif self.init_ == 'random_full':
+            # Initialize phase with random values sampled from a given list
+            phase_values = [np.pi/2, np.pi,3*np.pi/2, 2*np.pi]
+            random_indices = np.random.randint(0, len(phase_values), size=self.shape_)
+            random_phases = np.array([phase_values[idx] for idx in random_indices.flat], dtype=np.float32).reshape(self.shape_)
+            initializer = tf.keras.initializers.Constant(random_phases)
+        elif self.init_ == 'zero':
+            initializer = tf.keras.initializers.Constant(0.0)
+        else:
+            raise ValueError(f"Unknown init: {self.init_}")
+        
         self.phase = self.add_weight(
             name="phase",
             shape=self.shape_,
-            initializer=tf.keras.initializers.RandomUniform(minval=0, maxval=2 * np.pi),
+            initializer=initializer,
             trainable=True
         )
         super(DiffractiveMaskLayer, self).build(input_shape)
