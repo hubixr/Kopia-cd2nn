@@ -31,8 +31,8 @@ BATCH_SIZE = 1
 CALLBACK_PATIENCE = 3
 CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
 SMOOTHNESS_WEIGHT = 5e-8 #def 1e-7
-POWER_LOSS_WEIGHT = 2
-FOCAL_INTENSITY_WEIGHT = 10
+POWER_LOSS_WEIGHT = 1
+FOCAL_INTENSITY_WEIGHT = 1e-2
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"

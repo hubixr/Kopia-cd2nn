@@ -1,29 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-"""
-PropagationLayer: A TensorFlow custom layer for simulating light propagation.
 
-This layer models the propagation of an optical field over a specified distance using FFT-based convolutions. It is designed for use in computational diffractive neural networks (CDNNs).
-
-Key Features:
-- Simulates light propagation efficiently using FFT.
-- Handles complex input fields represented as two channels (Re, Im).
-- Precomputes the propagation kernel during initialization for faster execution.
-
-Attributes:
-- `h_real`: Precomputed real part of the propagation kernel.
-- `h_imag`: Precomputed imaginary part of the propagation kernel.
-
-Methods:
-- `call(inputs)`: Applies the propagation kernel to the input field and returns the propagated field.
-
-Inputs:
-- Tensor of shape `[B, H, W, 2]` representing the complex input field (real and imaginary parts).
-
-Outputs:
-- Tensor of shape `[B, H, W, 2]` representing the propagated complex field (real and imaginary parts).
-"""
 
 class PropagationLayer(tf.keras.layers.Layer):
     def __init__(self, wavelength, distance, pixel_size, shape, name=None):
@@ -123,7 +101,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         output_power = tf.reduce_sum(re_re**2 + im_im**2)
         print("Power after propagation:", output_power)
         self.power_loss = ((input_power - output_power) / input_power)
-        # tf.print("Power loss percentage:", (self.power_loss * 100), " %")
+        tf.print("Power loss percentage:", (self.power_loss * 100), " %")
         # Compute real and imaginary parts of the output
         out_real = re_re - im_im
         out_imag = re_im + im_re

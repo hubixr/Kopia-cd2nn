@@ -1,28 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-"""
-DiffractiveMaskLayer: A TensorFlow custom layer representing a diffractive optical element (DOE).
 
-This layer introduces a phase delay to the input optical field, simulating the effect of a DOE. The phase map is a trainable parameter, allowing the network to optimize the DOE for specific tasks.
-
-Key Features:
-- Trainable phase map initialized randomly (can be replaced with a constant value).
-- Handles complex input fields represented as two channels (Re, Im).
-- Ensures numerical stability by handling NaN and Inf values in the input and output fields.
-
-Attributes:
-- `phase`: Trainable weight representing the phase map of the DOE.
-
-Methods:
-- `call(inputs)`: Applies the phase modulation to the input field and returns the modulated field.
-
-Inputs:
-- Tensor of shape `[B, H, W, 2]` representing the complex input field (real and imaginary parts).
-
-Outputs:
-- Tensor of shape `[B, H, W, 2]` representing the modulated complex field (real and imaginary parts).
-"""
 phase_mask_path = "validation_data_lenses/phase_mask/lens_px_0.9mm_size_128_frequency96GHz_f_200mm.bmp"  
 
 # Currently, the phase is initialized randomly, but it can be replaced with a constant value.
@@ -49,9 +28,9 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
     def build(self, input_shape):
         # Initialize phase as a trainable weight
         phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)
-        if self.init_ == 'random_small':
+        if self.init_ == 'random_full':
             initializer = tf.keras.initializers.RandomUniform(0.0, 2 * np.pi, seed=42)
-        elif self.init_ == 'random_full':
+        elif self.init_ == 'random_specified':
             # Initialize phase with random values sampled from a given list
             phase_values = [np.pi/2, np.pi,3*np.pi/2, 2*np.pi]
             random_indices = np.random.randint(0, len(phase_values), size=self.shape_)
