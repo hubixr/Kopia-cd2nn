@@ -15,7 +15,7 @@ class CDNNModel(tf.keras.Model):
         
         # Create intermediate DOE and propagation layers
         for i in range(num_layers - 1):
-            init_value = 'random_small'
+            init_value = 'random_full'
             print(f"Layer {i + 1}: DOE + Propagation z={distance_between_layers} m init={init_value}")
             self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{i + 1}", init=init_value))
             self.prop_layers.append(PropagationLayer(
