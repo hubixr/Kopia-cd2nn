@@ -36,8 +36,8 @@ class PropagationLayer(tf.keras.layers.Layer):
         h_real = np.real(h)
         h_imag = np.imag(h)
 
-        print("h_real shape:", h_real.shape)
-        print("h_imag shape:", h_imag.shape)
+        # print("h_real shape:", h_real.shape)
+        # print("h_imag shape:", h_imag.shape)
         
         # Use NumPy arrays for tf.constant_initializer
         self.h_real = self.add_weight(
@@ -67,7 +67,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         tf.debugging.assert_all_finite(im_u, "NaN or Inf detected in im_u after replacement")
 
         input_power = tf.reduce_sum(re_u**2 + im_u**2)
-        print("Power before propagation:", input_power)
+        # print("Power before propagation:", input_power)
         # size = int(re_u.shape[1] / 2) # old padding sieze
         size = int(self.H / (self.padding_multiplier+1) * self.padding_multiplier/2) # new padding size
 
@@ -78,7 +78,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         im_u = tf.keras.layers.ZeroPadding2D(padding=(size, size))(im_u)
         re_u = tf.squeeze(re_u, axis=-1)
         im_u = tf.squeeze(im_u, axis=-1)
-        print("re_u shape after padding:", re_u.shape)
+        # print("re_u shape after padding:", re_u.shape)
         # Ensure padded inputs are finite
         tf.debugging.assert_all_finite(re_u, "NaN or Inf detected in padded re_u")
         tf.debugging.assert_all_finite(im_u, "NaN or Inf detected in padded im_u")
@@ -99,9 +99,9 @@ class PropagationLayer(tf.keras.layers.Layer):
         print("End of convolutions")
 
         output_power = tf.reduce_sum(re_re**2 + im_im**2)
-        print("Power after propagation:", output_power)
+        # print("Power after propagation:", output_power)
         self.power_loss = ((input_power - output_power) / input_power)
-        tf.print("Power loss percentage:", (self.power_loss * 100), " %")
+        # tf.print("Power loss percentage:", (self.power_loss * 100), " %")
         # Compute real and imaginary parts of the output
         out_real = re_re - im_im
         out_imag = re_im + im_re
@@ -139,6 +139,6 @@ class PropagationLayer(tf.keras.layers.Layer):
         tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real after cropping")
         tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag after cropping")
 
-        print("output shape:", tf.stack([out_real, out_imag], axis=-1).shape)
+        # print("output shape:", tf.stack([out_real, out_imag], axis=-1).shape)
 
         return tf.stack([out_real, out_imag], axis=-1)

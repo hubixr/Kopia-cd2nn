@@ -25,14 +25,15 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.02  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
-EPOCHS = 2
+EPOCHS = 20
 LEARNING_RATE = 0.1
-BATCH_SIZE = 1
-CALLBACK_PATIENCE = 0
-CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
-SMOOTHNESS_WEIGHT = 1e-9 #def 1e-7
-POWER_LOSS_WEIGHT = 1e2
-FOCAL_INTENSITY_WEIGHT = 1e-5
+BATCH_SIZE = 4
+CALLBACK_PATIENCE = 5
+CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-4
+SMOOTHNESS_WEIGHT = 1e-9 #def 1e-9
+POWER_LOSS_WEIGHT = 1 #def 1
+FOCAL_INTENSITY_WEIGHT = 1e-2
+USE_ALL_LAYERS_POWER_LOSS = True  # Set to False to use only final layer power loss
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -75,7 +76,7 @@ def load_bmp_target_field(target_file, shape):
     target_array = np.expand_dims(target_array, axis=0)  # Add batch dimension
     # Ensure the target array has a channel dimension
     target_array = np.expand_dims(target_array, axis=-1)  # Add channel dimension
-    print("target_array shape:", target_array.shape)
+    # print("target_array shape:", target_array.shape)
     return target_array
 
 # Modify the input data to have two channels: one with the BMP values and the second filled with zeros
@@ -115,28 +116,28 @@ if not inputs:
 input_data = np.stack(inputs, axis=0).astype(np.float32)  # Load .bmp files directly
 
 # Debugging: Print the shape of input_data
-print(f"Input data shape: {input_data.shape}")
+# print(f"Input data shape: {input_data.shape}")
 
 # Update the input data processing to include the zero channel
 input_data = add_zero_channel(input_data)
 
 # Debugging: Print the shape of input_data before reshaping
-print(f"Input data shape before reshaping: {input_data.shape}")
+# print(f"Input data shape before reshaping: {input_data.shape}")
 
 # Apply cropping or resizing to input_data
 input_data = crop_or_resize_input(input_data, DOE_SHAPE)
 
 # Debugging: Print the shape of input_data after cropping or resizing
-print(f"Input data shape after cropping or resizing: {input_data.shape}")
+# print(f"Input data shape after cropping or resizing: {input_data.shape}")
 
 
 # Debugging: Print the shape of input_data after adding the second channel
-print(f"Input data shape after adding second channel: {input_data.shape}")
+# print(f"Input data shape after adding second channel: {input_data.shape}")
 
 
 
 # Debugging: Print input data shape
-print(f"Input data shape after reshaping: {input_data.shape}")
+# print(f"Input data shape after reshaping: {input_data.shape}")
 print(f"Liczba próbek: {input_data.shape[0]}")
 print("Laduję target...")
 target_data = load_bmp_target_field(TARGET_FILE, DOE_SHAPE).astype(np.float32)
@@ -166,21 +167,21 @@ x_train = ((x_train / np.max(np.abs(x_train))))
 x_val = ((x_val / np.max(np.abs(x_val))))
 x_test = ((x_test / np.max(np.abs(x_test))))
 
-print("y_test min:", y_test.min())
-print("y_test max:", y_test.max())
-print("y_train mean:", y_train.mean())
+# print("y_test min:", y_test.min())
+# print("y_test max:", y_test.max())
+# print("y_train mean:", y_train.mean())
 
 # Debugging: Check input data for NaN or large values
-print("Input data stats:")
-print(f"x_train min: {np.min(x_train)}, max: {np.max(x_train)}, mean: {np.mean(x_train)}")
-print(f"x_val min: {np.min(x_val)}, max: {np.max(x_val)}, mean: {np.mean(x_val)}")
-print(f"x_test min: {np.min(x_test)}, max: {np.max(x_test)}, mean: {np.mean(x_test)}")
+# print("Input data stats:")
+# print(f"x_train min: {np.min(x_train)}, max: {np.max(x_train)}, mean: {np.mean(x_train)}")
+# print(f"x_val min: {np.min(x_val)}, max: {np.max(x_val)}, mean: {np.mean(x_val)}")
+# print(f"x_test min: {np.min(x_test)}, max: {np.max(x_test)}, mean: {np.mean(x_test)}")
 
 # Debugging: Check target data for NaN or large values
-print("Target data stats:")
-print(f"y_train min: {np.min(y_train)}, max: {np.max(y_train)}, mean: {np.mean(y_train)}")
-print(f"y_val min: {np.min(y_val)}, max: {np.max(y_val)}, mean: {np.mean(y_val)}")
-print(f"y_test min: {np.min(y_test)}, max: {np.max(y_test)}, mean: {np.mean(y_test)}")
+# print("Target data stats:")
+# print(f"y_train min: {np.min(y_train)}, max: {np.max(y_train)}, mean: {np.mean(y_train)}")
+# print(f"y_val min: {np.min(y_val)}, max: {np.max(y_val)}, mean: {np.mean(y_val)}")
+# print(f"y_test min: {np.min(y_test)}, max: {np.max(y_test)}, mean: {np.mean(y_test)}")
 
 # ================================
 # BUDOWA MODELU
@@ -194,6 +195,9 @@ model = CDNNModel(
     distance_between_layers=PROPAGATION_DISTANCE_BEETWEEN_DOE,
     pixel_size=PIXEL_SIZE
 )
+
+print(f"Power loss mode: {'All layers' if USE_ALL_LAYERS_POWER_LOSS else 'Final layer only'}")
+print(f"Power loss weight: {POWER_LOSS_WEIGHT}")
 
 loss_fn = tf.keras.losses.MeanSquaredError()  # Absolute Mean Error
 opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipnorm for gradient clipping - better stability
@@ -245,13 +249,29 @@ def custom_loss_with_model(model):
         smoothness_loss = 0
         for layer in model.doe_layers:
             smoothness_loss += smoothness_regularization(layer.phase)
-        power_loss = tf.reduce_mean(model.last_power_loss)
+        
+        # Power loss calculation - choose between all layers or only final layer
+        if USE_ALL_LAYERS_POWER_LOSS:
+            # Power loss from all propagation layers
+            total_power_loss = 0
+            for i, power_loss in enumerate(model.all_power_losses):
+                layer_power_loss = tf.reduce_mean(power_loss)
+                total_power_loss += layer_power_loss
+                # Optional: print power loss for each layer during training
+                tf.print(f"Layer {i+1} power loss:", layer_power_loss * 100, "%")
+            
+            tf.print("Total power loss:", total_power_loss * 100, "%")
+            power_loss_term = total_power_loss
+        else:
+            # Power loss from final layer only (original behavior)
+            power_loss_term = tf.reduce_mean(model.last_power_loss)
+            tf.print("Final layer power loss:", power_loss_term * 100, "%")
 
         # Focal intensity: mean value in a 10x10 px window at the center of the field
         shape = tf.shape(y_pred)
         center_y = shape[1] // 2
         center_x = shape[2] // 2
-        window_size = 4
+        window_size = 3
         half_window = window_size // 2
         # Slicing: [center_y-half_window:center_y+half_window, center_x-half_window:center_x+half_window]
         focal_patch = y_pred[:, 
@@ -263,7 +283,7 @@ def custom_loss_with_model(model):
         total_loss = (
             mse_loss
             + lambda_smooth * smoothness_loss
-            + lambda_power * power_loss
+            + lambda_power * power_loss_term  # Now can use power loss from all layers or just final
             - FOCAL_INTENSITY_WEIGHT * focal_intensity  # Adjust weight as needed
         )
         return total_loss
@@ -282,11 +302,11 @@ end_time = time.time()
 print(f"Data loading time: {end_time - start_time:.2f} seconds")
 val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
 test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
-print("Data parameters:")
-print("x_train range:", x_train.min(), x_train.max())
-print("y_train range:", y_train.min(), y_train.max())
-print("x_test range:", x_test.min(), x_test.max())
-print("y_test range:", y_test.min(), y_test.max())
+# print("Data parameters:")
+# print("x_train range:", x_train.min(), x_train.max())
+# print("y_train range:", y_train.min(), y_train.max())
+# print("x_test range:", x_test.min(), x_test.max())
+# print("y_test range:", y_test.min(), y_test.max())
 
 from pathlib import Path
 
@@ -342,7 +362,8 @@ print(evaluation_results)
 
 # Update file naming to include model parameters
 psnr_value = evaluation_results[1]  # Assuming PSNR is the second metric in evaluation_results
-file_suffix = f"PSNR_{psnr_value:.2f}_freq_{FREQUENCY/1e9:.3f}GHz_batch_{BATCH_SIZE}_layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
+power_loss_mode = "all_layers" if USE_ALL_LAYERS_POWER_LOSS else "final_only"
+file_suffix = f"PSNR_{psnr_value:.2f}_freq_{FREQUENCY/1e9:.3f}GHz_batch_{BATCH_SIZE}_layers_{NUM_LAYERS}_epochs_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_doe_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}_power_{power_loss_mode}"
 
 def periodic_phase_optimization(phase):
     """
@@ -465,7 +486,7 @@ for i, layer in enumerate(model.doe_layers):
     plt.close(fig)
     print(f"Saved phase mask comparison (before/after optimization) for DOE Layer {i + 1} as PNG to {output_file_png}")
 
-print("LICZBA WARSTW:", len(model.doe_layers))
+# print("LICZBA WARSTW:", len(model.doe_layers))
 # Ensure the `saved_histories` directory exists
 history_dir = Path("saved_histories")
 history_dir.mkdir(exist_ok=True)
@@ -511,17 +532,17 @@ print(f"Training history graph saved to {history_graph_file}")
 # ================================
 print("Wizualizacja wyników i eksport masek fazowych...")
 sample_inputs = x_test[:5]
-print("Sample inputs shape:", sample_inputs.shape)
+# print("Sample inputs shape:", sample_inputs.shape)
 output_amplitude = model(sample_inputs).numpy()
 # output_amplitude = (output_amplitude - output_amplitude.min()) / (output_amplitude.max() - output_amplitude.min())
-print("Output amplitude shape:", output_amplitude.shape)
-print("Sample inputs shape:", sample_inputs.shape)
-print("Sample inputs range:", sample_inputs.min(), sample_inputs.max())
+# print("Output amplitude shape:", output_amplitude.shape)
+# print("Sample inputs shape:", sample_inputs.shape)
+# print("Sample inputs range:", sample_inputs.min(), sample_inputs.max())
 # print("Training history:", history.history)
 print("Number of propagation layers:", len(model.prop_layers))
 
-for i, layer in enumerate(model.doe_layers):
-    print(f"DOE Layer {i+1} phase shape:", layer.phase.numpy().shape)
+# for i, layer in enumerate(model.doe_layers):
+#     print(f"DOE Layer {i+1} phase shape:", layer.phase.numpy().shape)
 
 fig, axes = plt.subplots(4, 5, figsize=(18, 12))
 
@@ -541,8 +562,8 @@ for i in range(len(model.doe_layers)):
     phase_tensor = tf.convert_to_tensor(phase, dtype=tf.float32)
     optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
     phase = (optimized_phase/(2*np.pi)*255).astype(np.uint8)
-    print("phsae min:", phase.min())
-    print("phase max:", phase.max())
+    # print("phsae min:", phase.min())
+    # print("phase max:", phase.max())
     im2 = axes[2, i].imshow(phase, cmap='gray', vmin=0, vmax=255)
     axes[2, i].set_title(f'DOE Phase {i + 1}')
     axes[2, i].axis('off')
@@ -593,15 +614,6 @@ print("Zapisuję model...")
 model.save(f'models/cd2nn_model_{file_suffix}.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
 
-# Validate input data for NaN or Inf values before training
-if np.any(np.isnan(x_train)) or np.any(np.isinf(x_train)):
-    raise ValueError("NaN or Inf detected in x_train")
-if np.any(np.isnan(x_val)) or np.any(np.isinf(x_val)):
-    raise ValueError("NaN or Inf detected in x_val")
-if np.any(np.isnan(x_test)) or np.any(np.isinf(x_test)):
-    raise ValueError("NaN or Inf detected in x_test")
-
-print("Input data validation passed: No NaN or Inf values detected.")
 
 
 

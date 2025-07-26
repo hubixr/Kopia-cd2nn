@@ -52,10 +52,10 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
     # Add explicit casting to float16 for phase and inputs
     def call(self, inputs):
         inputs = tf.cast(inputs, tf.float16)  # Cast inputs to float16
-        print("Doe call")
+        # print("Doe call")
         re_u = inputs[..., 0]  # Real part
         im_u = inputs[..., 1]  # Imaginary part
-        print("checking for nans and infs in diffraction layer at the beginning")
+        # print("checking for nans and infs in diffraction layer at the beginning")
         re_u = tf.where(tf.math.is_nan(re_u) | tf.math.is_inf(re_u), tf.zeros_like(re_u), re_u)
         im_u = tf.where(tf.math.is_nan(im_u) | tf.math.is_inf(im_u), tf.zeros_like(im_u), im_u)
     
@@ -63,7 +63,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
         # Wrap phase to [0, 2π] range
         phase = tf.math.floormod(phase, 2 * np.pi)
-        print("phase shape:", phase.shape)
+        # print("phase shape:", phase.shape)
         # Apply phase modulation
         if im_u is None:
             print("im_u is None")
