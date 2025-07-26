@@ -25,14 +25,14 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.02  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
-EPOCHS = 5
+EPOCHS = 2
 LEARNING_RATE = 0.1
 BATCH_SIZE = 1
 CALLBACK_PATIENCE = 0
 CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-5
 SMOOTHNESS_WEIGHT = 1e-9 #def 1e-7
-POWER_LOSS_WEIGHT = 10
-FOCAL_INTENSITY_WEIGHT = 1e-4
+POWER_LOSS_WEIGHT = 1e2
+FOCAL_INTENSITY_WEIGHT = 1e-5
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -402,19 +402,35 @@ output_dir = Path("best_doe_masks")
 output_dir.mkdir(exist_ok=True)
 for i, layer in enumerate(model.doe_layers):
     phase = layer.phase.numpy()
+    
+    # Ensure phase is properly wrapped to [0, 2π] range before processing
+    phase_wrapped = np.mod(phase, 2*np.pi)
+    print(f"DOE Layer {i+1} - Phase range before wrapping: [{np.min(phase):.3f}, {np.max(phase):.3f}] radians")
+    print(f"DOE Layer {i+1} - Phase range after wrapping: [{np.min(phase_wrapped):.3f}, {np.max(phase_wrapped):.3f}] radians")
+    
+    # Show what would happen without wrapping (incorrect approach)
+    phase_incorrect = (phase/(2*np.pi)*255).astype(np.int32)
+    phase_correct = (phase_wrapped/(2*np.pi)*255).astype(np.uint8)
+    print(f"DOE Layer {i+1} - BMP without wrapping (WRONG): [{np.min(phase_incorrect)}, {np.max(phase_incorrect)}]")
+    print(f"DOE Layer {i+1} - BMP with wrapping (CORRECT): [{np.min(phase_correct)}, {np.max(phase_correct)}]")
+    
     # Save unoptimized phase mask for comparison
-    phase_unoptimized_normalized = (phase/(2*np.pi)*255).astype(np.uint8)
+    phase_unoptimized_normalized = (phase_wrapped/(2*np.pi)*255).astype(np.uint8)
     output_file_bmp_unopt = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}_unoptimized.bmp'
     Image.fromarray(phase_unoptimized_normalized).save(output_file_bmp_unopt)
     print(f"Saved best trained (unoptimized) phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp_unopt}")
 
-    # Convert to tf.Tensor for optimization
-    phase_tensor = tf.convert_to_tensor(phase, dtype=tf.float32)
+    # Convert wrapped phase to tf.Tensor for optimization
+    phase_tensor = tf.convert_to_tensor(phase_wrapped, dtype=tf.float32)
     # Optimize phase mask to reduce discontinuities
     optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
+    
+    # Verify optimized phase range
+    print(f"DOE Layer {i+1} - Optimized phase range: [{np.min(optimized_phase):.3f}, {np.max(optimized_phase):.3f}] radians")
 
     # Normalize optimized phase to range 0-255
     phase_normalized = (optimized_phase/(2*np.pi)*255).astype(np.uint8)
+    print(f"DOE Layer {i+1} - Final BMP values range: [{np.min(phase_normalized)}, {np.max(phase_normalized)}]")
 
     # Save as BMP file
     output_file_bmp = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}.bmp'
@@ -424,10 +440,14 @@ for i, layer in enumerate(model.doe_layers):
 # Save a side-by-side PNG comparison of the phase mask before and after periodic phase optimization for each DOE layer
 for i, layer in enumerate(model.doe_layers):
     phase = layer.phase.numpy()
+    
+    # Ensure phase is properly wrapped to [0, 2π] range before processing
+    phase_wrapped = np.mod(phase, 2*np.pi)
+    
     # Unoptimized phase mask
-    phase_unoptimized_normalized = (phase/(2*np.pi)*255).astype(np.uint8)
+    phase_unoptimized_normalized = (phase_wrapped/(2*np.pi)*255).astype(np.uint8)
     # Optimize phase mask
-    phase_tensor = tf.convert_to_tensor(phase, dtype=tf.float32)
+    phase_tensor = tf.convert_to_tensor(phase_wrapped, dtype=tf.float32)
     optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
     phase_optimized_normalized = (optimized_phase/(2*np.pi)*255).astype(np.uint8)
 
