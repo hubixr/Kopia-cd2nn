@@ -27,12 +27,12 @@ PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
 EPOCHS = 100
 LEARNING_RATE = 0.1
-BATCH_SIZE = 4
+BATCH_SIZE = 1
 CALLBACK_PATIENCE = 5
 CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-4
 SMOOTHNESS_WEIGHT = 1e-9 #def 1e-9
 POWER_LOSS_WEIGHT = 1 #def 1
-FOCAL_INTENSITY_WEIGHT = 0
+FOCAL_INTENSITY_WEIGHT = 1e-2
 USE_ALL_LAYERS_POWER_LOSS = True  # Set to False to use only final layer power loss
 # ================================
 DATA_DIR = Path("./cdnn_data")
@@ -258,20 +258,20 @@ def custom_loss_with_model(model):
                 layer_power_loss = tf.reduce_mean(power_loss)
                 total_power_loss += layer_power_loss
                 # Optional: print power loss for each layer during training
-                tf.print(f"Layer {i+1} power loss:", layer_power_loss * 100, "%")
+                # tf.print(f"Layer {i+1} power loss:", layer_power_loss * 100, "%")
             
-            tf.print("Total power loss:", total_power_loss * 100, "%")
+            # tf.print("Total power loss:", total_power_loss * 100, "%")
             power_loss_term = total_power_loss
         else:
             # Power loss from final layer only (original behavior)
             power_loss_term = tf.reduce_mean(model.last_power_loss)
-            tf.print("Final layer power loss:", power_loss_term * 100, "%")
+            # tf.print("Final layer power loss:", power_loss_term * 100, "%")
 
         # Focal intensity: mean value in a 10x10 px window at the center of the field
         shape = tf.shape(y_pred)
         center_y = shape[1] // 2
         center_x = shape[2] // 2
-        window_size = 3
+        window_size = 6
         half_window = window_size // 2
         # Slicing: [center_y-half_window:center_y+half_window, center_x-half_window:center_x+half_window]
         focal_patch = y_pred[:, 
