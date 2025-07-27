@@ -3,6 +3,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy.fft import rfft2, irfft2, fft2, ifft2
+import tensorflow as tf
 
 
 #Config
@@ -10,8 +11,8 @@ PIXEL_SIZE = 9e-4  # [m]
 FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
-DISTANCE_BETWEEN_DOE = 0.0205 #[m]
-DISTANCE_TO_TARGET = 0.201 #[m]
+DISTANCE_BETWEEN_DOE = 0.05 #[m]
+DISTANCE_TO_TARGET = 0.20 #[m]
 
 # Distance range configuration
 DISTANCE_MIN = 0.195  # [m] - minimum distance to target
@@ -156,10 +157,30 @@ for dist_idx, target_distance in enumerate(distance_values):
         N = re_u.shape[0]  # Assuming square input for simplicity
         print(f"Convolution with phase mask {i + 1}")
         # Use complex FFT for correct shape and propagation
-        re_re = np.real(ifft2(fft2(re_u) * h_real)) / np.sqrt(N**3)
-        im_im = np.real(ifft2(fft2(im_u) * h_imag)) / np.sqrt(N**3)
-        re_im = np.real(ifft2(fft2(re_u) * h_real)) / np.sqrt(N**3)
-        im_re = np.real(ifft2(fft2(im_u) * h_imag)) / np.sqrt(N**3)
+        # Convert numpy arrays to TensorFlow tensors
+        re_u_tf = tf.convert_to_tensor(re_u, dtype=tf.float32)
+        im_u_tf = tf.convert_to_tensor(im_u, dtype=tf.float32)
+        h_real_tf = tf.convert_to_tensor(h_real, dtype=tf.complex64)
+        h_imag_tf = tf.convert_to_tensor(h_imag, dtype=tf.complex64)
+
+        # Cast real and imaginary parts to complex
+        re_u_c = tf.cast(re_u_tf, tf.complex64)
+        im_u_c = tf.cast(im_u_tf, tf.complex64)
+
+        # Perform FFT-based propagation using TensorFlow
+        fft_re_u = tf.signal.fft2d(re_u_c)
+        fft_im_u = tf.signal.fft2d(im_u_c)
+
+        re_re = tf.math.real(tf.signal.ifft2d(fft_re_u * h_real_tf)) / tf.math.sqrt(tf.cast(N**3, tf.float32))
+        im_im = tf.math.real(tf.signal.ifft2d(fft_im_u * h_imag_tf)) / tf.math.sqrt(tf.cast(N**3, tf.float32))
+        re_im = tf.math.real(tf.signal.ifft2d(fft_re_u * h_real_tf)) / tf.math.sqrt(tf.cast(N**3, tf.float32))
+        im_re = tf.math.real(tf.signal.ifft2d(fft_im_u * h_imag_tf)) / tf.math.sqrt(tf.cast(N**3, tf.float32))
+
+        # Convert tensors back to numpy arrays for further processing
+        re_re = re_re.numpy()
+        im_im = im_im.numpy()
+        re_im = re_im.numpy()
+        im_re = im_re.numpy()
 
         out_real = re_re - im_im
         out_imag = re_im + im_re

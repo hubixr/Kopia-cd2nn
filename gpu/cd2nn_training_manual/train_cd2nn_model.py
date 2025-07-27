@@ -10,6 +10,9 @@ import time
 from PIL import Image
 from PIL import ImageOps
 
+# Clear VRAM and reset TensorFlow session
+tf.keras.backend.clear_session()
+
 # mixed_precision.set_global_policy('float32')
 
 
@@ -22,12 +25,12 @@ FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
-PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.02  # [m]
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
 EPOCHS = 100
 LEARNING_RATE = 0.1
-BATCH_SIZE = 1
+BATCH_SIZE = 8
 CALLBACK_PATIENCE = 5
 CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-4
 SMOOTHNESS_WEIGHT = 1e-9 #def 1e-9
@@ -204,9 +207,20 @@ opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipn
 
 
 def psnr_metric(y_true, y_pred):
-    # Ensure y_pred has the same shape as y_true by adding a channel dimension if missing
-    if len(y_pred.shape) == 3:  # Check if y_pred is missing the channel dimension
+    # Ensure both tensors have the same shape
+    if len(y_true.shape) == 4 and len(y_pred.shape) == 3:
+        # y_true has batch dimension, y_pred doesn't - add batch dimension to y_pred
+        y_pred = tf.expand_dims(y_pred, axis=0)
+    elif len(y_true.shape) == 3 and len(y_pred.shape) == 4:
+        # y_pred has batch dimension, y_true doesn't - squeeze y_pred
+        y_pred = tf.squeeze(y_pred, axis=0)
+    
+    # Ensure both have channel dimension
+    if len(y_true.shape) == 3:
+        y_true = tf.expand_dims(y_true, axis=-1)
+    if len(y_pred.shape) == 3:
         y_pred = tf.expand_dims(y_pred, axis=-1)
+    
     return tf.image.psnr(y_true, y_pred, max_val=1.0)
 
 def calculate_power(y):
@@ -454,7 +468,7 @@ for i, layer in enumerate(model.doe_layers):
     print(f"DOE Layer {i+1} - Final BMP values range: [{np.min(phase_normalized)}, {np.max(phase_normalized)}]")
 
     # Save as BMP file
-    output_file_bmp = output_dir / f'best_trained_doe_phase_{i + 1}_{file_suffix}.bmp'
+    output_file_bmp = output_dir / f'b_doe_{i + 1}_{file_suffix}.bmp'
     Image.fromarray(phase_normalized).save(output_file_bmp)
     print(f"Saved best trained (optimized) phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp}")
 
