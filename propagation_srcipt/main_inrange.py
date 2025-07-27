@@ -10,7 +10,7 @@ PIXEL_SIZE = 9e-4  # [m]
 FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
-DISTANCE_BETWEEN_DOE = 0.02 #[m]
+DISTANCE_BETWEEN_DOE = 0.0205 #[m]
 DISTANCE_TO_TARGET = 0.201 #[m]
 
 # Distance range configuration
