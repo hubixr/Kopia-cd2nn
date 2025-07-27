@@ -16,7 +16,7 @@ DISTANCE_TO_TARGET = 0.201 #[m]
 # Distance range configuration
 DISTANCE_MIN = 0.195  # [m] - minimum distance to target
 DISTANCE_MAX = 0.205  # [m] - maximum distance to target
-DISTANCE_STEP = 0.0001  # [m] - step size for distance variation
+DISTANCE_STEP = 0.001  # [m] - step size for distance variation
 PADDING_MULTIPLIER = 4  # Padding multiplier for the propagation layer
 H_BEFORE_PADDING, W_BEFORE_PADDING = 128, 128  # Size of the image in pixels before padding
 H = 128 * (PADDING_MULTIPLIER + 1)

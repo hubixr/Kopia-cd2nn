@@ -25,14 +25,14 @@ print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.02  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
-EPOCHS = 20
+EPOCHS = 100
 LEARNING_RATE = 0.1
 BATCH_SIZE = 4
 CALLBACK_PATIENCE = 5
-CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-4
+CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-4
 SMOOTHNESS_WEIGHT = 1e-9 #def 1e-9
 POWER_LOSS_WEIGHT = 1 #def 1
-FOCAL_INTENSITY_WEIGHT = 1e-2
+FOCAL_INTENSITY_WEIGHT = 0
 USE_ALL_LAYERS_POWER_LOSS = True  # Set to False to use only final layer power loss
 # ================================
 DATA_DIR = Path("./cdnn_data")
