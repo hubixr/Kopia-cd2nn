@@ -30,9 +30,9 @@ PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
 EPOCHS = 100
 LEARNING_RATE = 0.1
-BATCH_SIZE = 8
-CALLBACK_PATIENCE = 5
-CALLBACK_MIN_DELTA = 1e-5 #deflaut 1e-4
+BATCH_SIZE = 16
+CALLBACK_PATIENCE = 3
+CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-4
 SMOOTHNESS_WEIGHT = 1e-9 #def 1e-9
 POWER_LOSS_WEIGHT = 1 #def 1
 FOCAL_INTENSITY_WEIGHT = 1e-2
@@ -432,9 +432,22 @@ def periodic_phase_optimization(phase):
     optimized_phase = tf.math.floormod(optimized_phase, pi2)
     return optimized_phase
 
+# Create organized output directory using file_suffix
+organized_output_dir = Path(f"results_{file_suffix}")
+organized_output_dir.mkdir(exist_ok=True)
+
+# Create subdirectories
+phase_comparison_dir = organized_output_dir / "phase_comparison"
+sample_outputs_dir = organized_output_dir / "sample_outputs"
+inputs_outputs_dir = organized_output_dir / "inputs_outputs"
+doe_masks_dir = organized_output_dir / "b_doe_masks"
+
+phase_comparison_dir.mkdir(exist_ok=True)
+sample_outputs_dir.mkdir(exist_ok=True)
+inputs_outputs_dir.mkdir(exist_ok=True)
+doe_masks_dir.mkdir(exist_ok=True)
+
 # Save the best trained phase mask to a folder as BMP
-output_dir = Path("best_doe_masks")
-output_dir.mkdir(exist_ok=True)
 for i, layer in enumerate(model.doe_layers):
     phase = layer.phase.numpy()
     
@@ -451,7 +464,7 @@ for i, layer in enumerate(model.doe_layers):
     
     # Save unoptimized phase mask for comparison
     phase_unoptimized_normalized = (phase_wrapped/(2*np.pi)*255).astype(np.uint8)
-    output_file_bmp_unopt = output_dir / f'b_doe_{i + 1}_{file_suffix}_un.bmp'
+    output_file_bmp_unopt = doe_masks_dir / f'b_doe_{i + 1}_{file_suffix}_un.bmp'
     Image.fromarray(phase_unoptimized_normalized).save(output_file_bmp_unopt)
     print(f"Saved best trained (unoptimized) phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp_unopt}")
 
@@ -468,7 +481,7 @@ for i, layer in enumerate(model.doe_layers):
     print(f"DOE Layer {i+1} - Final BMP values range: [{np.min(phase_normalized)}, {np.max(phase_normalized)}]")
 
     # Save as BMP file
-    output_file_bmp = output_dir / f'b_doe_{i + 1}_{file_suffix}.bmp'
+    output_file_bmp = doe_masks_dir / f'b_doe_{i + 1}_{file_suffix}.bmp'
     Image.fromarray(phase_normalized).save(output_file_bmp)
     print(f"Saved best trained (optimized) phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp}")
 
@@ -495,7 +508,7 @@ for i, layer in enumerate(model.doe_layers):
     axes[1].set_title('After Optimization')
     axes[1].axis('off')
     plt.tight_layout()
-    output_file_png = output_dir / f'phase_comparison_{i + 1}_{file_suffix}.png'
+    output_file_png = phase_comparison_dir / f'phase_comparison_{i + 1}_{file_suffix}.png'
     plt.savefig(output_file_png)
     plt.close(fig)
     print(f"Saved phase mask comparison (before/after optimization) for DOE Layer {i + 1} as PNG to {output_file_png}")
@@ -587,6 +600,44 @@ for i in range(len(model.doe_layers)):
     axes[3, i].set_title(f'Target {i}')
     axes[3, i].axis('off')
     plt.colorbar(im3, ax=axes[3, i], fraction=0.046, pad=0.04)
+
+# Update sample output file naming to include model parameters
+sample_output_file = sample_outputs_dir / f'output_{file_suffix}.png'
+plt.tight_layout()
+plt.savefig(sample_output_file)
+plt.close()
+print(f"Sample output saved to {sample_output_file}")
+
+# Plot 5 inputs and outputs even if there is only one DOE
+fig, axes = plt.subplots(2, 5, figsize=(18, 8))
+for i in range(5):
+    # Plot input
+    im0 = axes[0, i].imshow(sample_inputs[i, :, :, 0], cmap='gray', extent=[0, DOE_SHAPE[1], 0, DOE_SHAPE[0]])
+    axes[0, i].set_title(f'Input {i + 1}')
+    axes[0, i].set_xlabel('X (pixels)')
+    axes[0, i].set_ylabel('Y (pixels)')
+    axes[0, i].axis('on')
+    plt.colorbar(im0, ax=axes[0, i], fraction=0.046, pad=0.04)
+
+    # Plot output
+    im1 = axes[1, i].imshow(output_amplitude[i], cmap='hot', extent=[0, DOE_SHAPE[1], 0, DOE_SHAPE[0]])
+    axes[1, i].set_title(f'Output {i + 1}')
+    axes[1, i].set_xlabel('X (pixels)')
+    axes[1, i].set_ylabel('Y (pixels)')
+    axes[1, i].axis('on')
+    plt.colorbar(im1, ax=axes[1, i], fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.savefig(inputs_outputs_dir / f"inputs_outputs_plot_{file_suffix}.png")
+plt.close()
+print("Plotted 5 inputs and outputs.")
+
+# ================================
+# ZAPIS MODELU
+# ================================
+print("Zapisuję model...")
+model.save(f'models/cd2nn_model_{file_suffix}.keras')
+print("Model zapisany jako cdnn_model_v2.keras")
 
 # Update sample output file naming to include model parameters
 output_dir = Path("sample_outputs")

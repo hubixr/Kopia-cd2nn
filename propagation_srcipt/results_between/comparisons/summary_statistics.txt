@@ -1,17 +1,17 @@
 Summary Statistics:
 --------------------------------------------------
-Distance 0.195m: Max intensity = 7.44e-17, Total power = 6.78e-14
-Distance 0.196m: Max intensity = 3.94e-17, Total power = 5.11e-14
-Distance 0.197m: Max intensity = 2.71e-17, Total power = 6.73e-14
-Distance 0.198m: Max intensity = 8.27e-17, Total power = 6.34e-14
-Distance 0.199m: Max intensity = 2.29e-17, Total power = 5.21e-14
-Distance 0.200m: Max intensity = 3.98e-17, Total power = 7.03e-14
-Distance 0.201m: Max intensity = 7.58e-17, Total power = 5.84e-14
-Distance 0.202m: Max intensity = 2.46e-17, Total power = 5.54e-14
-Distance 0.203m: Max intensity = 6.29e-17, Total power = 7.12e-14
-Distance 0.204m: Max intensity = 5.65e-17, Total power = 5.41e-14
-Distance 0.205m: Max intensity = 2.56e-17, Total power = 6.00e-14
+Distance 0.195m: Max intensity = 7.07e-17, Total power = 6.80e-14
+Distance 0.196m: Max intensity = 3.57e-17, Total power = 5.10e-14
+Distance 0.197m: Max intensity = 2.70e-17, Total power = 6.76e-14
+Distance 0.198m: Max intensity = 7.70e-17, Total power = 6.34e-14
+Distance 0.199m: Max intensity = 2.33e-17, Total power = 5.21e-14
+Distance 0.200m: Max intensity = 3.95e-17, Total power = 7.07e-14
+Distance 0.201m: Max intensity = 6.94e-17, Total power = 5.84e-14
+Distance 0.202m: Max intensity = 2.47e-17, Total power = 5.54e-14
+Distance 0.203m: Max intensity = 6.00e-17, Total power = 7.15e-14
+Distance 0.204m: Max intensity = 5.14e-17, Total power = 5.40e-14
+Distance 0.205m: Max intensity = 2.54e-17, Total power = 6.02e-14
 
 Optimal distance (highest max intensity): 0.198m
-Max intensity: 8.27e-17
+Max intensity: 7.70e-17
 Total power: 6.34e-14

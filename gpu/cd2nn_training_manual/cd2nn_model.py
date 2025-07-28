@@ -22,7 +22,7 @@ class CDNNModel(tf.keras.Model):
                 wavelength, distance_between_layers, pixel_size, shape, name=f"prop_{i + 1}"
             ))
 
-        init_value = 'zero'
+        init_value = 'random_full'
         # Create final DOE and propagation layer (to target)
         self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{num_layers}", init=init_value))
         self.prop_layers.append(PropagationLayer(wavelength, distance_to_plane, pixel_size, shape, name=f"prop_{num_layers}"))
