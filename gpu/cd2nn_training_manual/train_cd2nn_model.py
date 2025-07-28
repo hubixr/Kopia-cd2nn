@@ -325,7 +325,7 @@ test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(BATCH_
 from pathlib import Path
 
 class PhaseHistogramCallback(tf.keras.callbacks.Callback):
-    def __init__(self, save_dir='phase_histograms'):
+    def __init__(self, save_dir):
         super().__init__()
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(exist_ok=True)
@@ -350,10 +350,10 @@ class PhaseHistogramCallback(tf.keras.callbacks.Callback):
 
 print("Trenowanie modelu...")
 callback = tf.keras.callbacks.EarlyStopping(
-    monitor='loss',  # Monitor the loss
-    min_delta=CALLBACK_MIN_DELTA,  # Minimum change in loss to qualify as an improvement
-    patience= CALLBACK_PATIENCE,      # Number of epochs with no improvement after which training will stop
-    restore_best_weights=True,  # Restore the weights of the best epoch
+    monitor='loss',
+    min_delta=CALLBACK_MIN_DELTA,
+    patience= CALLBACK_PATIENCE,
+    restore_best_weights=True,
 )
 
 start_time = time.time()
@@ -361,7 +361,7 @@ history = model.fit(
     train_dataset,
     validation_data=val_dataset,
     epochs=EPOCHS,
-    callbacks=[callback, PhaseHistogramCallback()],
+    callbacks=[callback, PhaseHistogramCallback(phase_histograms_dir)],
     verbose=1
 )
 model.summary()
@@ -433,7 +433,10 @@ def periodic_phase_optimization(phase):
     return optimized_phase
 
 # Create organized output directory using file_suffix
-organized_output_dir = Path(f"results_{file_suffix}")
+results_dir = Path("results")
+results_dir.mkdir(exist_ok=True)
+
+organized_output_dir = results_dir / f"results_{file_suffix}"
 organized_output_dir.mkdir(exist_ok=True)
 
 # Create subdirectories
@@ -441,11 +444,17 @@ phase_comparison_dir = organized_output_dir / "phase_comparison"
 sample_outputs_dir = organized_output_dir / "sample_outputs"
 inputs_outputs_dir = organized_output_dir / "inputs_outputs"
 doe_masks_dir = organized_output_dir / "b_doe_masks"
+history_dir = organized_output_dir / "saved_histories"
+models_dir = organized_output_dir / "models"
+phase_histograms_dir = organized_output_dir / "phase_histograms"
 
 phase_comparison_dir.mkdir(exist_ok=True)
 sample_outputs_dir.mkdir(exist_ok=True)
 inputs_outputs_dir.mkdir(exist_ok=True)
 doe_masks_dir.mkdir(exist_ok=True)
+history_dir.mkdir(exist_ok=True)
+models_dir.mkdir(exist_ok=True)
+phase_histograms_dir.mkdir(exist_ok=True)
 
 # Save the best trained phase mask to a folder as BMP
 for i, layer in enumerate(model.doe_layers):
@@ -456,18 +465,6 @@ for i, layer in enumerate(model.doe_layers):
     print(f"DOE Layer {i+1} - Phase range before wrapping: [{np.min(phase):.3f}, {np.max(phase):.3f}] radians")
     print(f"DOE Layer {i+1} - Phase range after wrapping: [{np.min(phase_wrapped):.3f}, {np.max(phase_wrapped):.3f}] radians")
     
-    # Show what would happen without wrapping (incorrect approach)
-    phase_incorrect = (phase/(2*np.pi)*255).astype(np.int32)
-    phase_correct = (phase_wrapped/(2*np.pi)*255).astype(np.uint8)
-    print(f"DOE Layer {i+1} - BMP without wrapping (WRONG): [{np.min(phase_incorrect)}, {np.max(phase_incorrect)}]")
-    print(f"DOE Layer {i+1} - BMP with wrapping (CORRECT): [{np.min(phase_correct)}, {np.max(phase_correct)}]")
-    
-    # Save unoptimized phase mask for comparison
-    phase_unoptimized_normalized = (phase_wrapped/(2*np.pi)*255).astype(np.uint8)
-    output_file_bmp_unopt = doe_masks_dir / f'b_doe_{i + 1}_{file_suffix}_un.bmp'
-    Image.fromarray(phase_unoptimized_normalized).save(output_file_bmp_unopt)
-    print(f"Saved best trained (unoptimized) phase mask for DOE Layer {i + 1} as BMP to {output_file_bmp_unopt}")
-
     # Convert wrapped phase to tf.Tensor for optimization
     phase_tensor = tf.convert_to_tensor(phase_wrapped, dtype=tf.float32)
     # Optimize phase mask to reduce discontinuities
@@ -548,7 +545,7 @@ plt.ylabel('PSNR (dB)')
 plt.legend()
 
 # Save the graph to a file
-history_graph_file = f"saved_histories/history_graph_{file_suffix}_{time.strftime('%Y-%m-%d')}.png"
+history_graph_file = history_dir / f"history_graph_{file_suffix}_{time.strftime('%Y-%m-%d')}.png"
 plt.tight_layout()
 plt.savefig(history_graph_file)
 plt.close()  # Close the plot to avoid displaying it
@@ -635,6 +632,9 @@ print("Plotted 5 inputs and outputs.")
 # ================================
 # ZAPIS MODELU
 # ================================
+print("Zapisuję model...")
+model.save(models_dir / f'cd2nn_model_{file_suffix}.keras')
+print("Model zapisany jako cdnn_model_v2.keras")
 print("Zapisuję model...")
 model.save(f'models/cd2nn_model_{file_suffix}.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
