@@ -379,60 +379,7 @@ psnr_value = evaluation_results[1]  # Assuming PSNR is the second metric in eval
 power_loss_mode = "all_layers" if USE_ALL_LAYERS_POWER_LOSS else "final_only"
 file_suffix = f"PSNR_{psnr_value:.2f}_b_{BATCH_SIZE}_l_{NUM_LAYERS}_ep_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
 
-def periodic_phase_optimization(phase):
-    """
-    Post-process a phase mask to reduce sharp discontinuities by adjusting each pixel by -2π, 0, or +2π
-    to minimize the sum of squared phase differences with its 4-connected neighbors.
-    Args:
-        phase: tf.Tensor of shape [H, W], dtype float32, values in [0, 2π)
-    Returns:
-        optimized_phase: tf.Tensor of shape [H, W], dtype float32
-    """
-    pi2 = tf.constant(2 * np.pi, dtype=phase.dtype)
-    H = tf.shape(phase)[0]
-    W = tf.shape(phase)[1]
-
-    # Create 3 candidate phase masks: phi-2pi, phi, phi+2pi
-    candidates = tf.stack([
-        phase - pi2,  # k = -1
-        phase,       # k = 0
-        phase + pi2  # k = +1
-    ], axis=-1)  # shape: [H, W, 3]
-
-    # Pad for neighbor computation (REFLECT to avoid border artifacts)
-    pad = [[1, 1], [1, 1], [0, 0]]
-    candidates_padded = tf.pad(candidates, pad, mode='REFLECT')  # shape: [H+2, W+2, 3]
-
-    # For each direction, get neighbor values for all candidates
-    up    = candidates_padded[0:-2, 1:-1, :]  # [H, W, 3]
-    down  = candidates_padded[2:  , 1:-1, :]
-    left  = candidates_padded[1:-1, 0:-2, :]
-    right = candidates_padded[1:-1, 2:  , :]
-
-    # For each candidate, compute cost as sum of squared differences to 4 neighbors
-    cost = (
-        tf.square(candidates - up) +
-        tf.square(candidates - down) +
-        tf.square(candidates - left) +
-        tf.square(candidates - right)
-    )  # shape: [H, W, 3]
-
-    # Find the k (index) with minimum cost for each pixel
-    best_k = tf.argmin(cost, axis=-1, output_type=tf.int32)  # shape: [H, W], values in {0,1,2}
-
-    # Gather the optimal phase for each pixel
-    # Prepare indices for tf.gather_nd
-    H_idx = tf.range(H, dtype=tf.int32)
-    W_idx = tf.range(W, dtype=tf.int32)
-    H_grid, W_grid = tf.meshgrid(H_idx, W_idx, indexing='ij')
-    gather_idx = tf.stack([H_grid, W_grid, best_k], axis=-1)  # shape: [H, W, 3]
-    optimized_phase = tf.gather_nd(candidates, gather_idx)  # shape: [H, W]
-
-    # Optionally wrap back to [0, 2pi)
-    optimized_phase = tf.math.floormod(optimized_phase, pi2)
-    return optimized_phase
-
-# Create organized output directory using file_suffix
+# Create organized output directory using file_suffix BEFORE training
 results_dir = Path("results")
 results_dir.mkdir(exist_ok=True)
 
@@ -528,7 +475,7 @@ plt.subplot(1, 2, 1)
 plt.plot(history.history['loss'], label='Training Loss')
 if 'val_loss' in history.history:
     plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.yscale('log')  # Set y-axis to logarithmic scale
+plt.yscale('log')
 plt.title('Loss over Epochs (Log Scale)')
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
@@ -548,7 +495,7 @@ plt.legend()
 history_graph_file = history_dir / f"history_graph_{file_suffix}_{time.strftime('%Y-%m-%d')}.png"
 plt.tight_layout()
 plt.savefig(history_graph_file)
-plt.close()  # Close the plot to avoid displaying it
+plt.close()
 print(f"Training history graph saved to {history_graph_file}")
 
 # ================================
@@ -634,9 +581,6 @@ print("Plotted 5 inputs and outputs.")
 # ================================
 print("Zapisuję model...")
 model.save(models_dir / f'cd2nn_model_{file_suffix}.keras')
-print("Model zapisany jako cdnn_model_v2.keras")
-print("Zapisuję model...")
-model.save(f'models/cd2nn_model_{file_suffix}.keras')
 print("Model zapisany jako cdnn_model_v2.keras")
 
 # Update sample output file naming to include model parameters
