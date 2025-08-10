@@ -13,7 +13,7 @@ class CDNNModel(tf.keras.Model):
         # Create intermediate DOE and propagation layers
         for i in range(num_layers - 1):
             if i == 0:
-                init_value = 'zero'
+                init_value = 'random_full'  # First layer initialized randomly
             else:
                 init_value = 'random_specified'
             print(f"Layer {i + 1}: DOE + Propagation z={distance_between_layers} m init={init_value}")

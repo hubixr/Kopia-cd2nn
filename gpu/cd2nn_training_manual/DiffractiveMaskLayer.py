@@ -45,6 +45,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
             name="phase",
             shape=self.shape_,
             initializer=initializer,
+            constraint=tf.keras.constraints.NonNeg(),
             trainable=True
         )
         super(DiffractiveMaskLayer, self).build(input_shape)

@@ -7,10 +7,10 @@ from scipy.fft import rfft2, irfft2, fft2, ifft2
 
 #Config
 PIXEL_SIZE = 9e-4  # [m]
-FREQUENCY = 96 * 1e9  # [GHz]
+FREQUENCY = 160 * 1e9  # [GHz]
 C = 299792458  # [m/s]
 WAVELENGTH = C / (FREQUENCY)  # [m]
-DISTANCE_BETWEEN_DOE = 0.0201 #[m]
+DISTANCE_BETWEEN_DOE = 0.0051 #[m]
 DISTANCE_TO_TARGET = 0.201 #[m]
 PADDING_MULTIPLIER = 10  # Padding multiplier for the propagation layer
 H_BEFORE_PADDING, W_BEFORE_PADDING = 128, 128  # Size of the image in pixels before padding

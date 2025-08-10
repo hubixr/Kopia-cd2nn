@@ -1,0 +1,16 @@
+=== POWER LOSS ANALYSIS ===
+Model Configuration:
+  - Number of DOE layers: 2
+  - DOE shape: (128, 128)
+  - Wavelength: 3.12e-03 m
+  - Distance between DOEs: 0.05 m
+  - Distance to target: 0.2 m
+
+Power Loss per Layer:
+  Layer 1: 0.005110 (0.5110%)
+  Layer 2: 0.046539 (4.6539%)
+
+Total Power Loss: 0.051648 (5.1648%)
+Power Efficiency: 94.8352%
+
+Final Layer Power Loss: 0.046539 (4.6539%)

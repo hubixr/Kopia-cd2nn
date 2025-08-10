@@ -1,0 +1,29 @@
+=== MODEL PARAMETERS AND POWER LOSS ANALYSIS ===
+
+Training Parameters:
+  - Learning Rate: 0.03
+  - Batch Size: 4
+  - Epochs: 250
+  - Callback Patience: 6
+  - Callback Min Delta: 0.0001
+  - Smoothness Weight: 1e-09
+  - Power Loss Weight: 1
+  - Focal Intensity Weight: 0.001
+  - Use All Layers Power Loss: True
+
+Model Configuration:
+  - Number of DOE layers: 2
+  - DOE shape: (128, 128)
+  - Wavelength: 3.12e-03 m
+  - Distance between DOEs: 0.05 m
+  - Distance to target: 0.2 m
+  - Pixel size: 9.00e-04 m
+
+Power Loss per Layer:
+  Layer 1: 0.009200 (0.9200%)
+  Layer 2: 0.067620 (6.7620%)
+
+Total Power Loss: 0.076820 (7.6820%)
+Power Efficiency: 92.3180%
+
+Final Layer Power Loss: 0.067620 (6.7620%)

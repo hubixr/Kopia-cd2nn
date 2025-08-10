@@ -1,3 +1,40 @@
+# --- 4. Generowanie x pól Gaussa jako wejścia z kanałem długości fali i zapis do npy ---
+def generate_gaussian_inputs_npy(folder, num_samples=500):
+    # Wavelength parameters from frequency config
+    FREQUENCY_MIN = 160 * 1e9
+    FREQUENCY_MAX = 200 * 1e9
+    FREQUENCY_STEP = 10 * 1e9
+    C = 299792458  # [m/s]
+    wavelength_min = C / (FREQUENCY_MAX)
+    wavelength_max = C / (FREQUENCY_MIN)
+    wavelength_step = (wavelength_max - wavelength_min) / 5
+    print("wavelength min:", wavelength_min)
+    print("wavelength max:", wavelength_max)
+    print("wavelength step:", wavelength_step)
+    wavelengths = np.arange(wavelength_min, wavelength_max + wavelength_step, wavelength_step)
+        # Debug: Print wavelengths and their count
+    print(wavelengths)
+    print(len(wavelengths))
+    folder.mkdir(parents=True, exist_ok=True)
+    idx = 0
+    for wl in wavelengths:
+        for i in range(num_samples):
+            radius_px = np.random.randint(32, 65)
+            sigma = radius_px / 2 * px_size_mm
+            center = [0, 0]
+            cov = [[sigma**2, 0], [0, sigma**2]]
+            rv = multivariate_normal(mean=center, cov=cov)
+            gaussian_map = rv.pdf(np.stack([X.ravel(), Y.ravel()], axis=1)).reshape(H, W)
+            gaussian_map /= gaussian_map.max()
+            arr = np.zeros((H, W, 3), dtype=np.float32)
+            arr[..., 0] = gaussian_map
+            arr[..., 1] = 0.0
+            arr[..., 2] = wl
+            npy_filename = folder / f"field_{idx:05d}.npy"
+            np.save(npy_filename, arr)
+            print(f"Saved Gaussian input field {idx} (radius ~{radius_px}px, sigma={sigma:.2f}mm, wl={wl}) as npy to {npy_filename}")
+            idx += 1
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
@@ -12,91 +49,23 @@ x = np.linspace(-(W//2)*px_size_mm, (W//2)*px_size_mm, W)
 y = np.linspace(-(H//2)*px_size_mm, (H//2)*px_size_mm, H)
 X, Y = np.meshgrid(x, y)
 
-# --- 1. Generowanie jednego ogniska Gaussa ---
-def generate_gaussian_targets(filename):
-    center = [0, 0]  # Center of the Gaussian spot (in mm)
-    sigma = 3        # Standard deviation (in mm)
-
-    cov = [[sigma**2, 0], [0, sigma**2]]
-
-    rv = multivariate_normal(mean=center, cov=cov)
-
-    gaussian_map = rv.pdf(np.stack([X.ravel(), Y.ravel()], axis=1)).reshape(H, W)
-
-    gaussian_map /= gaussian_map.max()  # Normalize to [0, 1]
-
-    # Save the Gaussian map as a grayscale BMP file
-    bmp_filename = filename.with_suffix('.bmp')
-    plt.imsave(bmp_filename, gaussian_map, cmap='gray')
-    print(f"Saved Gaussian map as grayscale BMP to {bmp_filename}")
-
-    plt.imshow(gaussian_map, cmap='hot', extent=[x[0], x[-1], y[0], y[-1]])
-    plt.title("Target Gaussian Spot")
-    plt.colorbar()
-    plt.savefig(filename.with_suffix('.png'))
-    plt.close()
-
-# --- 2. Generowanie x pól THz z artykułu "The collimated THz beam" ---
-def generate_thz_inputs(folder, num_samples=2000):
-    folder.mkdir(parents=True, exist_ok=True)
-
-    for i in range(num_samples):
-        # Plane wave with apertures of random diameters between 40 and 128px
-        diameter_px = np.random.randint(50, 128)  # Random diameter in pixels
-        radius_px = diameter_px // 2
-
-        # Create a circular aperture mask
-        aperture_mask = np.zeros((H, W), dtype=np.float32)
-        center_x, center_y = W // 2, H // 2
-        y_indices, x_indices = np.ogrid[:H, :W]
-        distance_from_center = np.sqrt((x_indices - center_x)**2 + (y_indices - center_y)**2)
-        aperture_mask[distance_from_center <= radius_px] = 1
-
-        # Plane wave field
-        field = aperture_mask
-
-        # Save the THz input field as a grayscale BMP file
-        bmp_filename = folder / f"field_{i:04d}.bmp"
-        plt.imsave(bmp_filename, field, cmap='gray')
-        print(f"Saved THz input field {i} as grayscale BMP to {bmp_filename}")
-
-    print("umin=", field.min())
-
-# --- 3. Generowanie x pól Gaussa jako wejścia ---
-def generate_gaussian_inputs(folder, num_samples=2000):
-    folder.mkdir(parents=True, exist_ok=True)
-    for i in range(num_samples):
-        # Randomize sigma for radius in range 32-64 px (sigma ~ radius/2)
-        radius_px = np.random.randint(32, 65)  # 32 to 64 px
-        sigma = radius_px / 2 * px_size_mm  # convert px to mm
-        center = [0, 0]  # Center at (0,0) mm
-        cov = [[sigma**2, 0], [0, sigma**2]]
-        rv = multivariate_normal(mean=center, cov=cov)
-        gaussian_map = rv.pdf(np.stack([X.ravel(), Y.ravel()], axis=1)).reshape(H, W)
-        gaussian_map /= gaussian_map.max()  # Normalize to [0, 1]
-        bmp_filename = folder / f"field_{i:04d}.bmp"
-        plt.imsave(bmp_filename, gaussian_map, cmap='gray')
-        print(f"Saved Gaussian input field {i} (radius ~{radius_px}px, sigma={sigma:.2f}mm) as grayscale BMP to {bmp_filename}")
-    print("umin=", gaussian_map.min())
 
 if __name__ == "__main__":
     os.makedirs("./cdnn_data", exist_ok=True)
     output_folder = Path("./cdnn_data")
-    # generate_gaussian_targets(output_folder / "target_field")  # Disabled target field generation
-    # generate_thz_inputs(output_folder / "input_fields")  # Disabled circle input generation
-    generate_gaussian_inputs(output_folder / "input_fields")
+    generate_gaussian_inputs_npy(output_folder / "input_fields")
 
-    # Visualize the first 10 inputs on one graph
+    # Visualize the first 10 inputs on one graph (from npy)
     input_folder = output_folder / "input_fields"
     plt.figure(figsize=(15, 6))
     for i in range(10):
-        bmp_input_file = input_folder / f"field_{i:04d}.bmp"
-        input_field = Image.open(bmp_input_file).convert('L')
-        input_field = np.array(input_field, dtype=np.float32) / 255.0
-
+        npy_input_file = input_folder / f"field_{i:05d}.npy"
+        input_field = np.load(npy_input_file)
         plt.subplot(2, 5, i + 1)
-        plt.imshow(input_field, cmap='viridis', extent=[x[0], x[-1], y[0], y[-1]])
-        plt.title(f"Input Field {i}")
+        plt.imshow(input_field[..., 0], cmap='viridis', extent=[x[0], x[-1], y[0], y[-1]])
+        plt.title(f"Input Field {i} (wl={input_field[0,0,2]:.3f})")
         plt.colorbar()
     plt.tight_layout()
     plt.show()
+
+

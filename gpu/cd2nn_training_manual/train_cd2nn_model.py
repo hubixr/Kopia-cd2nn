@@ -27,16 +27,27 @@ WAVELENGTH = C / (FREQUENCY)  # [m]
 print("Wavelength:", WAVELENGTH)
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 2
-EPOCHS = 100
-LEARNING_RATE = 0.1
-BATCH_SIZE = 16
+NUM_LAYERS = 1
+EPOCHS = 250
+# ================================
+LEARNING_RATE = 0.03
+BATCH_SIZE = 4
 CALLBACK_PATIENCE = 3
 CALLBACK_MIN_DELTA = 1e-4 #deflaut 1e-4
-SMOOTHNESS_WEIGHT = 1e-9 #def 1e-9
-POWER_LOSS_WEIGHT = 1 #def 1
-FOCAL_INTENSITY_WEIGHT = 1e-2
+SMOOTHNESS_WEIGHT = 1e-8  # Reduced from 1e-5 to allow more dramatic patterns
+POWER_LOSS_WEIGHT = 0.8 #def 1
+FOCAL_INTENSITY_WEIGHT = 1e-1
 USE_ALL_LAYERS_POWER_LOSS = True  # Set to False to use only final layer power loss
+# ================================
+# SMOOTHNESS FUNCTION WEIGHTS - MODIFIED FOR KINOFORM-LIKE PATTERNS
+# ================================
+SMOOTHNESS_TRADITIONAL_WEIGHT = 0.1  # Reduced - allow more phase jumps
+SMOOTHNESS_VARIATION_WEIGHT = 0.5    # Reduced - less emphasis on uniform variation
+SMOOTHNESS_BINARY_WEIGHT = 0.1       # Reduced - allow more binary-like patterns
+SMOOTHNESS_TARGET_STD_PERCENT = 0.3  # Increased - encourage larger local variations (30% of 2π)
+# Add new parameters for kinoform encouragement
+KINOFORM_RADIAL_WEIGHT = 2.0         # Encourage radial symmetry
+KINOFORM_PHASE_JUMP_WEIGHT = 1.0     # Encourage controlled phase jumps
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -230,29 +241,77 @@ lambda_smooth = SMOOTHNESS_WEIGHT  # Weight for smoothness regularization def 1e
 lambda_power = POWER_LOSS_WEIGHT
 def smoothness_regularization(phase):
     """
-    Compute the smoothness regularization term for the phase mask using L2 difference with 8 neighbors.
+    Simplified smoothness regularization that encourages intermediate phase values
+    and penalizes both no variation and extreme jumps.
+    
     Args:
-        phase: Tensor of shape (H, W), the phase mask.
+        phase: Tensor of shape (H, W), the phase mask in range [0, 2π].
     Returns:
         Smoothness regularization term (scalar).
     """
-    # Pad the phase mask to handle borders
+    pi2 = tf.constant(2 * np.pi, dtype=phase.dtype)
+    
+    # Ensure phase is in [0, 2π] range
+    phase = tf.math.floormod(phase, pi2)
+    
+    # Part 1: Traditional smoothness (8-neighbor differences with periodic wrapping)
     phase_padded = tf.pad(phase, [[1, 1], [1, 1]], mode='REFLECT')
+    
+    # All 8 neighbors
     neighbors = [
-        phase_padded[0:-2, 0:-2],  # top-left
         phase_padded[0:-2, 1:-1],  # top
-        phase_padded[0:-2, 2:  ],  # top-right
+        phase_padded[2:  , 1:-1],  # bottom
         phase_padded[1:-1, 0:-2],  # left
         phase_padded[1:-1, 2:  ],  # right
+        phase_padded[0:-2, 0:-2],  # top-left
+        phase_padded[0:-2, 2:  ],  # top-right
         phase_padded[2:  , 0:-2],  # bottom-left
-        phase_padded[2:  , 1:-1],  # bottom
-        phase_padded[2:  , 2:  ]   # bottom-right
+        phase_padded[2:  , 2:  ],  # bottom-right
     ]
-    center = phase
+    
     smoothness_term = 0
     for n in neighbors:
-        smoothness_term += tf.reduce_sum(tf.square(center - n))
-    return smoothness_term
+        diff = phase - n
+        # Wrap phase differences to [-π, π] for proper periodic boundary handling
+        diff = tf.math.atan2(tf.sin(diff), tf.cos(diff))
+        smoothness_term += tf.reduce_mean(tf.square(diff))
+    
+    # Part 2: Variation encouragement (penalize flat regions)
+    phase_padded_3x3 = tf.pad(phase, [[1, 1], [1, 1]], mode='REFLECT')
+    
+    # Extract 3x3 patches using tf.image.extract_patches
+    patches = tf.image.extract_patches(
+        tf.expand_dims(tf.expand_dims(phase_padded_3x3, 0), -1),  # Add batch and channel dims
+        sizes=[1, 3, 3, 1],
+        strides=[1, 1, 1, 1],
+        rates=[1, 1, 1, 1],
+        padding='VALID'
+    )  # Shape: [1, H, W, 9]
+    
+    patches = tf.squeeze(patches, axis=0)  # Remove batch dim: [H, W, 9]
+    
+    # Calculate local standard deviation
+    local_mean = tf.reduce_mean(patches, axis=-1)  # [H, W]
+    local_variance = tf.reduce_mean(tf.square(patches - tf.expand_dims(local_mean, -1)), axis=-1)  # [H, W]
+    local_std = tf.sqrt(local_variance + 1e-8)
+    
+    # Target standard deviation (10% of 2π range)
+    target_std = SMOOTHNESS_TARGET_STD_PERCENT * pi2
+    variation_penalty = tf.reduce_mean(tf.square(local_std - target_std))
+    
+    # Part 3: Binary pattern penalty (discourage 0 and 2π values)
+    normalized_phase = phase / pi2
+    # sin(2π * normalized_phase) is maximum at 0 and 2π, minimum at π
+    binary_penalty = tf.reduce_mean(tf.square(tf.sin(pi2 * normalized_phase)))
+    
+    # Combine all terms
+    total_penalty = (
+        SMOOTHNESS_TRADITIONAL_WEIGHT * smoothness_term + 
+        SMOOTHNESS_VARIATION_WEIGHT * variation_penalty + 
+        SMOOTHNESS_BINARY_WEIGHT * binary_penalty
+    )
+    
+    return total_penalty
 
 def custom_loss_with_model(model):
     def custom_loss(y_true, y_pred):
@@ -261,8 +320,12 @@ def custom_loss_with_model(model):
 
         # Add smoothness regularization for each phase mask
         smoothness_loss = 0
-        for layer in model.doe_layers:
-            smoothness_loss += smoothness_regularization(layer.phase)
+        for i, layer in enumerate(model.doe_layers):
+            layer_smoothness = smoothness_regularization(layer.phase)
+            smoothness_loss += layer_smoothness
+            # Debug: Print smoothness loss for each layer during training
+            if i == 0:  # Only print for debugging, can remove later
+                tf.print(f"Layer {i+1} smoothness loss:", layer_smoothness)
         
         # Power loss calculation - choose between all layers or only final layer
         if USE_ALL_LAYERS_POWER_LOSS:
@@ -285,7 +348,7 @@ def custom_loss_with_model(model):
         shape = tf.shape(y_pred)
         center_y = shape[1] // 2
         center_x = shape[2] // 2
-        window_size = 6
+        window_size = 2
         half_window = window_size // 2
         # Slicing: [center_y-half_window:center_y+half_window, center_x-half_window:center_x+half_window]
         focal_patch = y_pred[:, 
@@ -300,6 +363,10 @@ def custom_loss_with_model(model):
             + lambda_power * power_loss_term  # Now can use power loss from all layers or just final
             - FOCAL_INTENSITY_WEIGHT * focal_intensity  # Adjust weight as needed
         )
+        
+        # Debug: Print loss components occasionally
+        tf.print("MSE:", mse_loss, "Smooth:", lambda_smooth * smoothness_loss, "Power:", lambda_power * power_loss_term, "Focal:", FOCAL_INTENSITY_WEIGHT * focal_intensity)
+        
         return total_loss
 
     return custom_loss
@@ -316,13 +383,12 @@ end_time = time.time()
 print(f"Data loading time: {end_time - start_time:.2f} seconds")
 val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
 test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
-# print("Data parameters:")
-# print("x_train range:", x_train.min(), x_train.max())
-# print("y_train range:", y_train.min(), y_train.max())
-# print("x_test range:", x_test.min(), x_test.max())
-# print("y_test range:", y_test.min(), y_test.max())
 
 from pathlib import Path
+
+# Create temporary directory structure for callbacks - will be updated after evaluation
+temp_phase_histograms_dir = Path("temp_phase_histograms")
+temp_phase_histograms_dir.mkdir(exist_ok=True)
 
 class PhaseHistogramCallback(tf.keras.callbacks.Callback):
     def __init__(self, save_dir):
@@ -361,7 +427,7 @@ history = model.fit(
     train_dataset,
     validation_data=val_dataset,
     epochs=EPOCHS,
-    callbacks=[callback, PhaseHistogramCallback(phase_histograms_dir)],
+    callbacks=[callback, PhaseHistogramCallback(temp_phase_histograms_dir)],
     verbose=1
 )
 model.summary()
@@ -375,11 +441,64 @@ evaluation_results = model.evaluate(test_dataset)
 print(evaluation_results)
 
 # Update file naming to include model parameters
-psnr_value = evaluation_results[1]  # Assuming PSNR is the second metric in evaluation_results
+psnr_value = evaluation_results[1]
 power_loss_mode = "all_layers" if USE_ALL_LAYERS_POWER_LOSS else "final_only"
 file_suffix = f"PSNR_{psnr_value:.2f}_b_{BATCH_SIZE}_l_{NUM_LAYERS}_ep_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
 
-# Create organized output directory using file_suffix BEFORE training
+def periodic_phase_optimization(phase):
+    """
+    Post-process a phase mask to reduce sharp discontinuities by adjusting each pixel by -2π, 0, or +2π
+    to minimize the sum of squared phase differences with its 4-connected neighbors.
+    Args:
+        phase: tf.Tensor of shape [H, W], dtype float32, values in [0, 2π)
+    Returns:
+        optimized_phase: tf.Tensor of shape [H, W], dtype float32
+    """
+    pi2 = tf.constant(2 * np.pi, dtype=phase.dtype)
+    H = tf.shape(phase)[0]
+    W = tf.shape(phase)[1]
+
+    # Create 3 candidate phase masks: phi-2pi, phi, phi+2pi
+    candidates = tf.stack([
+        phase - pi2,  # k = -1
+        phase,       # k = 0
+        phase + pi2  # k = +1
+    ], axis=-1)  # shape: [H, W, 3]
+
+    # Pad for neighbor computation (REFLECT to avoid border artifacts)
+    pad = [[1, 1], [1, 1], [0, 0]]
+    candidates_padded = tf.pad(candidates, pad, mode='REFLECT')  # shape: [H+2, W+2, 3]
+
+    # For each direction, get neighbor values for all candidates
+    up    = candidates_padded[0:-2, 1:-1, :]  # [H, W, 3]
+    down  = candidates_padded[2:  , 1:-1, :]
+    left  = candidates_padded[1:-1, 0:-2, :]
+    right = candidates_padded[1:-1, 2:  , :]
+
+    # For each candidate, compute cost as sum of squared differences to 4 neighbors
+    cost = (
+        tf.square(candidates - up) +
+        tf.square(candidates - down) +
+        tf.square(candidates - left) +
+        tf.square(candidates - right)
+    )  # shape: [H, W, 3]
+
+    # Find the k (index) with minimum cost for each pixel
+    best_k = tf.argmin(cost, axis=-1, output_type=tf.int32)  # shape: [H, W], values in {0,1,2}
+
+    # Gather the optimal phase for each pixel
+    # Prepare indices for tf.gather_nd
+    H_idx = tf.range(H, dtype=tf.int32)
+    W_idx = tf.range(W, dtype=tf.int32)
+    H_grid, W_grid = tf.meshgrid(H_idx, W_idx, indexing='ij')
+    gather_idx = tf.stack([H_grid, W_grid, best_k], axis=-1)  # shape: [H, W, 3]
+    optimized_phase = tf.gather_nd(candidates, gather_idx)  # shape: [H, W]
+
+    # Optionally wrap back to [0, 2pi)
+    optimized_phase = tf.math.floormod(optimized_phase, pi2)
+    return optimized_phase
+
+# Create organized output directory using file_suffix
 results_dir = Path("results")
 results_dir.mkdir(exist_ok=True)
 
@@ -402,6 +521,69 @@ doe_masks_dir.mkdir(exist_ok=True)
 history_dir.mkdir(exist_ok=True)
 models_dir.mkdir(exist_ok=True)
 phase_histograms_dir.mkdir(exist_ok=True)
+
+# Move phase histogram files from temp directory to organized directory
+import shutil
+if temp_phase_histograms_dir.exists():
+    for file in temp_phase_histograms_dir.glob("*.png"):
+        shutil.move(str(file), str(phase_histograms_dir / file.name))
+    temp_phase_histograms_dir.rmdir()
+
+# Calculate and save power loss information
+power_loss_info = []
+power_loss_info.append("=== MODEL PARAMETERS AND POWER LOSS ANALYSIS ===\n\n")
+
+# Add training parameters
+power_loss_info.append("Training Parameters:\n")
+power_loss_info.append(f"  - Learning Rate: {LEARNING_RATE}\n")
+power_loss_info.append(f"  - Batch Size: {BATCH_SIZE}\n")
+power_loss_info.append(f"  - Epochs: {EPOCHS}\n")
+power_loss_info.append(f"  - Callback Patience: {CALLBACK_PATIENCE}\n")
+power_loss_info.append(f"  - Callback Min Delta: {CALLBACK_MIN_DELTA}\n")
+power_loss_info.append(f"  - Smoothness Weight: {SMOOTHNESS_WEIGHT}\n")
+power_loss_info.append(f"  - Smoothness Traditional Weight: {SMOOTHNESS_TRADITIONAL_WEIGHT}\n")
+power_loss_info.append(f"  - Smoothness Variation Weight: {SMOOTHNESS_VARIATION_WEIGHT}\n")
+power_loss_info.append(f"  - Smoothness Binary Weight: {SMOOTHNESS_BINARY_WEIGHT}\n")
+power_loss_info.append(f"  - Smoothness Target Std Percent: {SMOOTHNESS_TARGET_STD_PERCENT}\n")
+power_loss_info.append(f"  - Power Loss Weight: {POWER_LOSS_WEIGHT}\n")
+power_loss_info.append(f"  - Focal Intensity Weight: {FOCAL_INTENSITY_WEIGHT}\n")
+power_loss_info.append(f"  - Use All Layers Power Loss: {USE_ALL_LAYERS_POWER_LOSS}\n\n")
+
+power_loss_info.append("Model Configuration:\n")
+power_loss_info.append(f"  - Number of DOE layers: {NUM_LAYERS}\n")
+power_loss_info.append(f"  - DOE shape: {DOE_SHAPE}\n")
+power_loss_info.append(f"  - Wavelength: {WAVELENGTH:.2e} m\n")
+power_loss_info.append(f"  - Distance between DOEs: {PROPAGATION_DISTANCE_BEETWEEN_DOE} m\n")
+power_loss_info.append(f"  - Distance to target: {PROPAGATION_DISTANCE_TO_TARGET} m\n")
+power_loss_info.append(f"  - Pixel size: {PIXEL_SIZE:.2e} m\n\n")
+
+# Calculate power losses using test data
+test_sample = x_test[:1]  # Use first test sample
+test_output = model(test_sample)
+
+power_loss_info.append("Power Loss per Layer:\n")
+if hasattr(model, 'all_power_losses') and len(model.all_power_losses) > 0:
+    total_power_loss = 0
+    for i, power_loss in enumerate(model.all_power_losses):
+        layer_power_loss = float(tf.reduce_mean(power_loss).numpy())
+        total_power_loss += layer_power_loss
+        power_loss_info.append(f"  Layer {i+1}: {layer_power_loss:.6f} ({layer_power_loss*100:.4f}%)\n")
+    
+    power_loss_info.append(f"\nTotal Power Loss: {total_power_loss:.6f} ({total_power_loss*100:.4f}%)\n")
+    power_loss_info.append(f"Power Efficiency: {(1-total_power_loss)*100:.4f}%\n")
+else:
+    power_loss_info.append("  No power loss information available\n")
+
+# Add final layer power loss if available
+if hasattr(model, 'last_power_loss'):
+    final_power_loss = float(tf.reduce_mean(model.last_power_loss).numpy())
+    power_loss_info.append(f"\nFinal Layer Power Loss: {final_power_loss:.6f} ({final_power_loss*100:.4f}%)\n")
+
+# Save power loss information to file
+parameters_file = organized_output_dir / "parameters.txt"
+with open(parameters_file, 'w') as f:
+    f.writelines(power_loss_info)
+print(f"Model parameters and power loss analysis saved to {parameters_file}")
 
 # Save the best trained phase mask to a folder as BMP
 for i, layer in enumerate(model.doe_layers):
@@ -505,7 +687,7 @@ print("Wizualizacja wyników i eksport masek fazowych...")
 sample_inputs = x_test[:5]
 # print("Sample inputs shape:", sample_inputs.shape)
 output_amplitude = model(sample_inputs).numpy()
-# output_amplitude = (output_amplitude - output_amplitude.min()) / (output_amplitude.max() - output_amplitude.min())
+# output_amplitude = (output_amplitude - output_amplitude.min()) / (output_amplitude.max() - output_amplitude.min());
 # print("Output amplitude shape:", output_amplitude.shape)
 # print("Sample inputs shape:", sample_inputs.shape)
 # print("Sample inputs range:", sample_inputs.min(), sample_inputs.max())
