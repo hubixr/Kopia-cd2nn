@@ -42,7 +42,7 @@ print("Wavelength:", WAVELENGTH_MAX)
 print("Wavelength:", WAVELENGTH_STEP)
 # ================================
 LEARNING_RATE = 0.1
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 CALLBACK_PATIENCE = 3
 CALLBACK_MIN_DELTA = 1e-3 #deflaut 1e-4
 SMOOTHNESS_WEIGHT = 8e-1  # Reduced from 1e-5 to allow more dramatic patterns
@@ -67,7 +67,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 8192  # Example: 4GB limit
+        memory_limit_mb = 30720  # Example: 4GB limit
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
