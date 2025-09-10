@@ -13,6 +13,9 @@ os.makedirs(output_dir, exist_ok=True)
 
 # === Przetwarzaj wszystkie pliki .npy w podfolderach ===
 for file_path in glob.glob('**/*.npy', recursive=True):
+    # Skip files in /old folder
+    if '/old/' in file_path or file_path.startswith('old/'):
+        continue
     print(f"Przetwarzam plik: {file_path}")
     data = np.load(file_path)  # shape: (Z, Y, X)
     num_z, height, width = data.shape
