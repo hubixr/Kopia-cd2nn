@@ -27,13 +27,13 @@ C = 299792458  # [m/s]
 
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
+NUM_LAYERS = 2
 EPOCHS = 5
 # ================================
 # Wavelength from range
 FREQUENCY_MIN = 160 * 1e9
 FREQUENCY_MAX = 200 * 1e9
-FREQUENCY_STEP = 10 * 1e9
+FREQUENCY_STEP = 1 * 1e9
 WAVELENGTH_MIN = C / (FREQUENCY_MAX)
 WAVELENGTH_MAX = C / (FREQUENCY_MIN)
 WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / 5
@@ -42,20 +42,20 @@ print("Wavelength:", WAVELENGTH_MAX)
 print("Wavelength:", WAVELENGTH_STEP)
 # ================================
 LEARNING_RATE = 0.1
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 CALLBACK_PATIENCE = 3
 CALLBACK_MIN_DELTA = 1e-3 #deflaut 1e-4
-SMOOTHNESS_WEIGHT = 8e-1  # Reduced from 1e-5 to allow more dramatic patterns
-POWER_LOSS_WEIGHT = 1 #def 1
-FOCAL_INTENSITY_WEIGHT = 1
+SMOOTHNESS_WEIGHT = 1e-2  # Reduced from 1e-5 to allow more dramatic patterns
+POWER_LOSS_WEIGHT = 0.9 #def 1
+FOCAL_INTENSITY_WEIGHT = 0.2
 USE_ALL_LAYERS_POWER_LOSS = True  # Set to False to use only final layer power loss
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS - MODIFIED FOR KINOFORM-LIKE PATTERNS
 # ================================
-SMOOTHNESS_TRADITIONAL_WEIGHT = 0.5  # Reduced - allow more phase jumps
-SMOOTHNESS_VARIATION_WEIGHT = 0.1    # Reduced - less emphasis on uniform variation
-SMOOTHNESS_BINARY_WEIGHT = 0.5       # Reduced - allow more binary-like patterns
-SMOOTHNESS_TARGET_STD_PERCENT = 0.2  # Increased - encourage larger local variations (10% of 2π)
+SMOOTHNESS_TRADITIONAL_WEIGHT = 0.1  # Reduced - allow more phase jumps
+SMOOTHNESS_VARIATION_WEIGHT = 0.5    # Reduced - less emphasis on uniform variation
+SMOOTHNESS_BINARY_WEIGHT = 0.1       # Reduced - allow more binary-like patterns
+SMOOTHNESS_TARGET_STD_PERCENT = 0.1  # Increased - encourage larger local variations (10% of 2π)
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"

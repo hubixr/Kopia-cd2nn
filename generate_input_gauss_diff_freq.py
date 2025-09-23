@@ -1,13 +1,15 @@
 # --- 4. Generowanie x pól Gaussa jako wejścia z kanałem długości fali i zapis do npy ---
-def generate_gaussian_inputs_npy(folder, num_samples=2000):
+def generate_gaussian_inputs_npy(folder, num_samples=250):
     # Wavelength parameters from frequency config
     FREQUENCY_MIN = 160 * 1e9
     FREQUENCY_MAX = 200 * 1e9
-    FREQUENCY_STEP = 10 * 1e9
+    FREQUENCY_STEP = 1 * 1e9
+    freq_step_parameter = (FREQUENCY_MAX - FREQUENCY_MIN) / FREQUENCY_STEP
+
     C = 299792458  # [m/s]
     wavelength_min = C / (FREQUENCY_MAX)
     wavelength_max = C / (FREQUENCY_MIN)
-    wavelength_step = (wavelength_max - wavelength_min) / 5
+    wavelength_step = (wavelength_max - wavelength_min) / freq_step_parameter
     print("wavelength min:", wavelength_min)
     print("wavelength max:", wavelength_max)
     print("wavelength step:", wavelength_step)
