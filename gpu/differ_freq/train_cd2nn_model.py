@@ -27,16 +27,16 @@ C = 299792458  # [m/s]
 
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 2
+NUM_LAYERS = 1
 EPOCHS = 10
 # ================================
 # Wavelength from range
-FREQUENCY_MIN = 160 * 1e9
-FREQUENCY_MAX = 200 * 1e9
-FREQUENCY_STEP = 1 * 1e9
+FREQUENCY_MIN = 94 * 1e9
+FREQUENCY_MAX = 96 * 1e9
+FREQUENCY_STEP = 0.2 * 1e9
 WAVELENGTH_MIN = C / (FREQUENCY_MAX)
 WAVELENGTH_MAX = C / (FREQUENCY_MIN)
-WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / 41
+WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / 21
 print("Wavelength:", WAVELENGTH_MIN)
 print("Wavelength:", WAVELENGTH_MAX)
 print("Wavelength:", WAVELENGTH_STEP)
@@ -44,9 +44,9 @@ print("Wavelength:", WAVELENGTH_STEP)
 LEARNING_RATE = 0.1                     # ↑ Faster convergence but less stable | ↓ Slower but more stable training
 BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
 CALLBACK_PATIENCE = 3                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
-CALLBACK_MIN_DELTA = 1e-3             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
+CALLBACK_MIN_DELTA = 5e-2             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
 SMOOTHNESS_WEIGHT = 1e-5              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
-POWER_LOSS_WEIGHT = 0.8                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+POWER_LOSS_WEIGHT = 1                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
 FOCAL_INTENSITY_WEIGHT = 0.1          # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss
 # ================================
@@ -67,7 +67,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 30720  # Example: 4GB limit
+        memory_limit_mb = 40960  # 40GB limit
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,

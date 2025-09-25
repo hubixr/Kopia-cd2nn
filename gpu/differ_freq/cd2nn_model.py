@@ -13,7 +13,7 @@ class CDNNModel(tf.keras.Model):
         # Create intermediate DOE and propagation layers
         for i in range(num_layers - 1):
             if i == 0:
-                init_value = 'random_specified'  # First layer initialized randomly
+                init_value = 'zero'  # First layer initialized randomly
             else:
                 init_value = 'random_specified'
             print(f"Layer {i + 1}: DOE + Propagation z={distance_between_layers} m init={init_value}")
@@ -22,7 +22,7 @@ class CDNNModel(tf.keras.Model):
                 wavelength_min, wavelength_max, wavelength_step, distance_between_layers, pixel_size, shape, name=f"prop_{i + 1}"
             ))
 
-        init_value = 'random_specified'
+        init_value = 'zero'
         # Create final DOE and propagation layer (to target)
         self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{num_layers}", init=init_value))
         self.prop_layers.append(PropagationLayer(wavelength_min, wavelength_max, wavelength_step, distance_to_plane, pixel_size, shape, name=f"prop_{num_layers}"))

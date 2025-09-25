@@ -1,5 +1,4 @@
-results/
 sample_outputs/
 saved_histories/
 models/
-for_tests/
+*.keras
