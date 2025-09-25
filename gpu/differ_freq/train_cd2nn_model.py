@@ -28,7 +28,7 @@ C = 299792458  # [m/s]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
-EPOCHS = 5
+EPOCHS = 10
 # ================================
 # Wavelength from range
 FREQUENCY_MIN = 160 * 1e9
@@ -36,26 +36,26 @@ FREQUENCY_MAX = 200 * 1e9
 FREQUENCY_STEP = 1 * 1e9
 WAVELENGTH_MIN = C / (FREQUENCY_MAX)
 WAVELENGTH_MAX = C / (FREQUENCY_MIN)
-WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / 5
+WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / 41
 print("Wavelength:", WAVELENGTH_MIN)
 print("Wavelength:", WAVELENGTH_MAX)
 print("Wavelength:", WAVELENGTH_STEP)
 # ================================
-LEARNING_RATE = 0.1
-BATCH_SIZE = 32
-CALLBACK_PATIENCE = 3
-CALLBACK_MIN_DELTA = 1e-3 #deflaut 1e-4
-SMOOTHNESS_WEIGHT = 1e-2  # Reduced from 1e-5 to allow more dramatic patterns
-POWER_LOSS_WEIGHT = 0.9 #def 1
-FOCAL_INTENSITY_WEIGHT = 0.2
-USE_ALL_LAYERS_POWER_LOSS = True  # Set to False to use only final layer power loss
+LEARNING_RATE = 0.1                     # ↑ Faster convergence but less stable | ↓ Slower but more stable training
+BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
+CALLBACK_PATIENCE = 3                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
+CALLBACK_MIN_DELTA = 1e-3             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
+SMOOTHNESS_WEIGHT = 1e-5              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
+POWER_LOSS_WEIGHT = 0.8                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+FOCAL_INTENSITY_WEIGHT = 0.1          # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
+USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS - MODIFIED FOR KINOFORM-LIKE PATTERNS
 # ================================
-SMOOTHNESS_TRADITIONAL_WEIGHT = 0.1  # Reduced - allow more phase jumps
-SMOOTHNESS_VARIATION_WEIGHT = 0.5    # Reduced - less emphasis on uniform variation
-SMOOTHNESS_BINARY_WEIGHT = 0.1       # Reduced - allow more binary-like patterns
-SMOOTHNESS_TARGET_STD_PERCENT = 0.1  # Increased - encourage larger local variations (10% of 2π)
+SMOOTHNESS_TRADITIONAL_WEIGHT = 0.1   # ↑ Penalize neighbor phase differences more | ↓ Allow sharper phase transitions
+SMOOTHNESS_VARIATION_WEIGHT = 0.5     # ↑ Enforce uniform local phase variation | ↓ Allow varied local phase patterns
+SMOOTHNESS_BINARY_WEIGHT = 0.1       # ↑ Discourage 0/2π phase values more | ↓ Allow more binary-like phase patterns
+SMOOTHNESS_TARGET_STD_PERCENT = 0.1   # ↑ Encourage larger local variations | ↓ Prefer smaller local phase variations (10% of 2π)
 # ================================
 DATA_DIR = Path("./cdnn_data")
 INPUT_DIR = DATA_DIR / "input_fields"
@@ -323,14 +323,15 @@ def custom_loss_with_model(model):
         
         # Power loss calculation - choose between all layers or only final layer
         if USE_ALL_LAYERS_POWER_LOSS:
-            # Power loss from all propagation layers
-            total_power_loss = 0
+            # Power loss from all propagation layers - calculate cumulatively
+            remaining_power = 1.0  # Start with 100% power
             for i, power_loss in enumerate(model.all_power_losses):
                 layer_power_loss = tf.reduce_mean(power_loss)
-                total_power_loss += layer_power_loss
+                remaining_power = remaining_power * (1.0 - layer_power_loss)  # Apply sequential loss
                 # Optional: print power loss for each layer during training
                 # tf.print(f"Layer {i+1} power loss:", layer_power_loss * 100, "%")
             
+            total_power_loss = 1.0 - remaining_power  # Total cumulative power loss
             # tf.print("Total power loss:", total_power_loss * 100, "%")
             power_loss_term = total_power_loss
         else:
@@ -559,14 +560,22 @@ test_output = model(test_sample)
 
 power_loss_info.append("Power Loss per Layer:\n")
 if hasattr(model, 'all_power_losses') and len(model.all_power_losses) > 0:
-    total_power_loss = 0
+    remaining_power = 1.0  # Start with 100% power
+    cumulative_power_losses = []
+    
     for i, power_loss in enumerate(model.all_power_losses):
         layer_power_loss = float(tf.reduce_mean(power_loss).numpy())
-        total_power_loss += layer_power_loss
-        power_loss_info.append(f"  Layer {i+1}: {layer_power_loss:.6f} ({layer_power_loss*100:.4f}%)\n")
+        cumulative_power_losses.append(layer_power_loss)
+        power_before_layer = remaining_power
+        remaining_power = remaining_power * (1.0 - layer_power_loss)  # Apply sequential loss
+        power_loss_info.append(f"  Layer {i+1}: {layer_power_loss:.6f} ({layer_power_loss*100:.4f}% of incident power)\n")
+        power_loss_info.append(f"    Power before layer {i+1}: {power_before_layer:.6f} ({power_before_layer*100:.4f}%)\n")
+        power_loss_info.append(f"    Power after layer {i+1}: {remaining_power:.6f} ({remaining_power*100:.4f}%)\n\n")
     
-    power_loss_info.append(f"\nTotal Power Loss: {total_power_loss:.6f} ({total_power_loss*100:.4f}%)\n")
-    power_loss_info.append(f"Power Efficiency: {(1-total_power_loss)*100:.4f}%\n")
+    total_power_loss = 1.0 - remaining_power  # Total cumulative power loss
+    power_loss_info.append(f"Total Cumulative Power Loss: {total_power_loss:.6f} ({total_power_loss*100:.4f}%)\n")
+    power_loss_info.append(f"Final Power Transmission: {remaining_power:.6f} ({remaining_power*100:.4f}%)\n")
+    power_loss_info.append(f"Power Efficiency: {remaining_power*100:.4f}%\n")
 else:
     power_loss_info.append("  No power loss information available\n")
 
@@ -675,6 +684,71 @@ plt.tight_layout()
 plt.savefig(history_graph_file)
 plt.close()
 print(f"Training history graph saved to {history_graph_file}")
+
+# Also save a detailed training parameters loss graph to the organized results directory
+plt.figure(figsize=(15, 10))
+
+# Create a 2x2 subplot layout for detailed analysis
+# Plot 1: Training and Validation Loss (Linear Scale)
+plt.subplot(2, 2, 1)
+epochs_range = range(1, len(history.history['loss']) + 1)
+plt.plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
+if 'val_loss' in history.history:
+    plt.plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+plt.title('Training Parameters: Loss per Epoch (Linear Scale)')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Plot 2: Training and Validation Loss (Log Scale)
+plt.subplot(2, 2, 2)
+plt.plot(epochs_range, history.history['loss'], 'b-', label='Training Loss', linewidth=2)
+if 'val_loss' in history.history:
+    plt.plot(epochs_range, history.history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
+plt.yscale('log')
+plt.title('Training Parameters: Loss per Epoch (Log Scale)')
+plt.xlabel('Epoch')
+plt.ylabel('Loss (Log Scale)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Plot 3: PSNR Metric
+plt.subplot(2, 2, 3)
+plt.plot(epochs_range, history.history['psnr_metric'], 'g-', label='Training PSNR', linewidth=2)
+if 'val_psnr_metric' in history.history:
+    plt.plot(epochs_range, history.history['val_psnr_metric'], 'orange', label='Validation PSNR', linewidth=2)
+plt.title('Training Parameters: PSNR per Epoch')
+plt.xlabel('Epoch')
+plt.ylabel('PSNR (dB)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Plot 4: Learning Rate (if available) or Loss Improvement
+plt.subplot(2, 2, 4)
+if len(history.history['loss']) > 1:
+    loss_improvement = [0] + [history.history['loss'][i-1] - history.history['loss'][i] 
+                              for i in range(1, len(history.history['loss']))]
+    plt.plot(epochs_range, loss_improvement, 'm-', label='Loss Improvement', linewidth=2)
+    plt.title('Training Parameters: Loss Improvement per Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss Improvement')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+# Add training parameters as text
+plt.figtext(0.02, 0.02, 
+           f'Parameters: LR={LEARNING_RATE}, Batch={BATCH_SIZE}, Layers={NUM_LAYERS}, '
+           f'Smoothness={SMOOTHNESS_WEIGHT}, Power={POWER_LOSS_WEIGHT}', 
+           fontsize=10, ha='left')
+
+# Save the detailed training parameters graph to results directory
+training_params_graph = organized_output_dir / f"training_parameters_loss_{file_suffix}.png"
+plt.tight_layout()
+plt.subplots_adjust(bottom=0.1)  # Make room for parameter text
+plt.savefig(training_params_graph, dpi=300, bbox_inches='tight')
+plt.close()
+print(f"Detailed training parameters loss graph saved to {training_params_graph}")
 
 # ================================
 # WIZUALIZACJA WYNIKÓW + FAZY DOE
