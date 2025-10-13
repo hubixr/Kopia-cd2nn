@@ -46,8 +46,6 @@ class PropagationLayer(tf.keras.layers.Layer):
             initializer=tf.constant_initializer(h_table),
             trainable=False
         )
-        
-    # ...existing code...
 
     def call(self, inputs):
         inputs = tf.cast(inputs, tf.float32)
@@ -77,23 +75,41 @@ class PropagationLayer(tf.keras.layers.Layer):
         tf.debugging.assert_all_finite(im_u, "NaN or Inf detected in padded im_u")
 
 
-        # Since all pixels have the same wavelength, just use the first value
-        wl_value = wavelength[0, 0] if len(wavelength.shape) == 2 else wavelength[0, 0, 0]
-        wl_index = tf.argmin(tf.abs(self.wavelengths - wl_value))
-
-        # Gather the kernel for the matched wavelength
-        h_real = tf.cast(self.h_table[wl_index, ..., 0], tf.complex64)
-        h_imag = tf.cast(self.h_table[wl_index, ..., 1], tf.complex64)
-        print("h_real shape:", h_real.shape)
-        print("h_imag shape:", h_imag.shape)
+        # Process each sample in batch with its corresponding wavelength
+        batch_size = tf.shape(wavelength)[0]
+        if len(wavelength.shape) == 2:
+            raise ValueError("No wavelength channel found in input data. Please check the input data format.")
+        
+        # Get wavelength for each sample in batch
+        wl_values = wavelength[:, 0, 0]  # Shape: (batch_size,)
+        
+        # Find wavelength indices for all samples at once
+        wl_indices = tf.map_fn(
+            lambda wl: tf.argmin(tf.abs(self.wavelengths - wl)),
+            wl_values,
+            dtype=tf.int64
+        )
+        
+        tf.print("Selected wavelength indices for batch:", wl_indices)
+        
+        # Gather kernels for all wavelengths in the batch
+        h_real_batch = tf.gather(self.h_table[..., 0], wl_indices)  # Shape: (batch_size, H, W)
+        h_imag_batch = tf.gather(self.h_table[..., 1], wl_indices)  # Shape: (batch_size, H, W)
+        h_real_batch = tf.cast(h_real_batch, tf.complex64)
+        h_imag_batch = tf.cast(h_imag_batch, tf.complex64)
+        
+        print("h_real_batch shape:", h_real_batch.shape)
+        print("h_imag_batch shape:", h_imag_batch.shape)
         print("re_u shape:", re_u.shape)
         print("im_u shape:", im_u.shape)
 
         H_padding = int(self.H // 2 + 1)
-        h_real_wavelength = tf.cast(h_real[None, :, :H_padding], tf.complex64)
-        h_imag_wavelength = tf.cast(h_imag[None, :, :H_padding], tf.complex64)
+        h_real_wavelength = h_real_batch[:, :, :H_padding]  # Shape: (batch_size, H, H_padding)
+        h_imag_wavelength = h_imag_batch[:, :, :H_padding]  # Shape: (batch_size, H, H_padding)
+        
         print("h_real_wavelength shape:", h_real_wavelength.shape)
         print("h_imag_wavelength shape:", h_imag_wavelength.shape)
+        
         re_re = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_real_wavelength)
         im_im = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_imag_wavelength)
         re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_wavelength)

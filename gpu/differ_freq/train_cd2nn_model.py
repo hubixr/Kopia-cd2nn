@@ -27,13 +27,13 @@ C = 299792458  # [m/s]
 
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
-EPOCHS = 10
+NUM_LAYERS = 2
+EPOCHS = 1000
 # ================================
 # Wavelength from range
-FREQUENCY_MIN = 94 * 1e9
-FREQUENCY_MAX = 96 * 1e9
-FREQUENCY_STEP = 0.2 * 1e9
+FREQUENCY_MIN = 160 * 1e9
+FREQUENCY_MAX = 200 * 1e9
+FREQUENCY_STEP = 0.5 * 1e9
 WAVELENGTH_MIN = C / (FREQUENCY_MAX)
 WAVELENGTH_MAX = C / (FREQUENCY_MIN)
 WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / 21
@@ -43,11 +43,11 @@ print("Wavelength:", WAVELENGTH_STEP)
 # ================================
 LEARNING_RATE = 0.1                     # ↑ Faster convergence but less stable | ↓ Slower but more stable training
 BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
-CALLBACK_PATIENCE = 3                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
+CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 5e-2             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
 SMOOTHNESS_WEIGHT = 1e-5              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
-POWER_LOSS_WEIGHT = 1                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
-FOCAL_INTENSITY_WEIGHT = 0.1          # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
+POWER_LOSS_WEIGHT = 1.2                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+FOCAL_INTENSITY_WEIGHT = 0.2          # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS - MODIFIED FOR KINOFORM-LIKE PATTERNS
@@ -203,6 +203,11 @@ model = CDNNModel(
     distance_between_layers=PROPAGATION_DISTANCE_BEETWEEN_DOE,
     pixel_size=PIXEL_SIZE
 )
+# Print all layers with their distance to the next layer
+print(f"Number of layers created: {len(model.prop_layers)}")
+for i, prop_layer in enumerate(model.prop_layers):
+    print(f"Layer {i+1}: Distance to next layer = {prop_layer.distance} m")
+
 
 print(f"Power loss mode: {'All layers' if USE_ALL_LAYERS_POWER_LOSS else 'Final layer only'}")
 print(f"Power loss weight: {POWER_LOSS_WEIGHT}")
