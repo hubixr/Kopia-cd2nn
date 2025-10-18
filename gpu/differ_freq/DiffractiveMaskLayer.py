@@ -38,6 +38,8 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
             initializer = tf.keras.initializers.Constant(random_phases)
         elif self.init_ == 'zero':
             initializer = tf.keras.initializers.Constant(0.0)
+        elif self.init_ == 'pi':
+            initializer = tf.keras.initializers.Constant(np.pi)
         else:
             raise ValueError(f"Unknown init: {self.init_}")
         
@@ -64,7 +66,8 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         # Ensure phase is properly managed by TensorFlow
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
         # Wrap phase to [0, 2π] range
-        phase = tf.math.floormod(phase, 2 * np.pi)
+        # phase = tf.math.floormod(phase, 2 * np.pi)
+        # phase = tf.clip_by_value(phase, 0, 2 * np.pi)
         # print("phase shape:", phase.shape)
         # Apply phase modulation
         if im_u is None:
@@ -81,4 +84,13 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         # out_real = tf.where(tf.math.is_nan(out_real) | tf.math.is_inf(out_real), tf.zeros_like(out_real), out_real)
         # out_imag = tf.where(tf.math.is_nan(out_imag) | tf.math.is_inf(out_imag), tf.zeros_like(out_imag), out_imag)
         print("end doe call")
+        out_real = out_real/tf.reduce_max(tf.abs(out_real))
+        # tf.print("out_real stats:", tf.reduce_min(out_real), tf.reduce_max(out_real), tf.reduce_mean(out_real))
+        epsilon = 1e-14  # Small constant to avoid division by zero
+        max_imag = tf.reduce_max(tf.abs(out_imag))
+        out_imag = tf.cond(
+            max_imag > epsilon,
+            lambda: out_imag / (max_imag + epsilon),
+            lambda: out_imag  # If max_imag is zero, leave out_imag unchanged
+        )
         return tf.stack([out_real, out_imag, wavelength], axis=-1)  # [B, H, W, 3]

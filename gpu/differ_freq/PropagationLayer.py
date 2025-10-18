@@ -90,7 +90,7 @@ class PropagationLayer(tf.keras.layers.Layer):
             dtype=tf.int64
         )
         
-        tf.print("Selected wavelength indices for batch:", wl_indices)
+        # tf.print("Selected wavelength indices for batch:", wl_indices)
         
         # Gather kernels for all wavelengths in the batch
         h_real_batch = tf.gather(self.h_table[..., 0], wl_indices)  # Shape: (batch_size, H, W)

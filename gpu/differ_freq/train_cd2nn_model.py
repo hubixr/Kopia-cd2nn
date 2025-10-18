@@ -25,10 +25,10 @@ PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
 # WAVELENGTH = C / (FREQUENCY)  # [m]
 
-PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.05  # [m]
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 2
-EPOCHS = 1000
+NUM_LAYERS = 1
+EPOCHS = 300
 # ================================
 # Wavelength from range
 FREQUENCY_MIN = 160 * 1e9
@@ -41,19 +41,23 @@ print("Wavelength:", WAVELENGTH_MIN)
 print("Wavelength:", WAVELENGTH_MAX)
 print("Wavelength:", WAVELENGTH_STEP)
 # ================================
-LEARNING_RATE = 0.1                     # ↑ Faster convergence but less stable | ↓ Slower but more stable training
-BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
+LEARNING_RATE = 0.175                     # ↑ Faster convergence but less stable | ↓ Slower but more stable training
+lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
+    boundaries=[10, 15, 25, 40, 100],  # Epochs where the learning rate changes
+    values=[0.7, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
+)
+BATCH_SIZE = 16                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
 CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
-CALLBACK_MIN_DELTA = 5e-2             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
-SMOOTHNESS_WEIGHT = 1e-5              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
-POWER_LOSS_WEIGHT = 1.2                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
-FOCAL_INTENSITY_WEIGHT = 0.2          # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
+CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
+SMOOTHNESS_WEIGHT = 1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
+POWER_LOSS_WEIGHT = 1                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+FOCAL_INTENSITY_WEIGHT = 0.7          # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS - MODIFIED FOR KINOFORM-LIKE PATTERNS
 # ================================
 SMOOTHNESS_TRADITIONAL_WEIGHT = 0.1   # ↑ Penalize neighbor phase differences more | ↓ Allow sharper phase transitions
-SMOOTHNESS_VARIATION_WEIGHT = 0.5     # ↑ Enforce uniform local phase variation | ↓ Allow varied local phase patterns
+SMOOTHNESS_VARIATION_WEIGHT = 1    # ↑ Enforce uniform local phase variation | ↓ Allow varied local phase patterns
 SMOOTHNESS_BINARY_WEIGHT = 0.1       # ↑ Discourage 0/2π phase values more | ↓ Allow more binary-like phase patterns
 SMOOTHNESS_TARGET_STD_PERCENT = 0.1   # ↑ Encourage larger local variations | ↓ Prefer smaller local phase variations (10% of 2π)
 # ================================
@@ -213,7 +217,7 @@ print(f"Power loss mode: {'All layers' if USE_ALL_LAYERS_POWER_LOSS else 'Final 
 print(f"Power loss weight: {POWER_LOSS_WEIGHT}")
 
 loss_fn = tf.keras.losses.MeanSquaredError()  # Absolute Mean Error
-opt = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=1.0) #clipnorm for gradient clipping - better stability
+opt = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0) #clipnorm for gradient clipping - better stability
 
 
 def psnr_metric(y_true, y_pred):
@@ -403,6 +407,14 @@ class PhaseHistogramCallback(tf.keras.callbacks.Callback):
             axes = [axes]
         for i, layer in enumerate(self.model.doe_layers):
             phase_vals = layer.phase.numpy().flatten()
+            
+            # Filter out NaN and Inf values
+            phase_vals = phase_vals[np.isfinite(phase_vals)]
+            
+            if len(phase_vals) == 0:
+                print(f"Warning: All phase values for DOE Layer {i+1} are NaN or Inf.")
+                continue
+            
             axes[i].hist(phase_vals, bins=100)
             axes[i].set_title(f'Histogram fazy DOE {i+1} – epoka {epoch}')
             axes[i].set_xlabel('Faza [rad]')
@@ -412,7 +424,7 @@ class PhaseHistogramCallback(tf.keras.callbacks.Callback):
         out_path = self.save_dir / f'phase_hist_epoch_{epoch:04d}.png'
         plt.savefig(out_path)
         plt.close(fig)
-        # print(f"Saved phase histogram(s) for epoch {epoch} to {out_path}")
+        print(f"Saved phase histogram(s) for epoch {epoch} to {out_path}")
 
 print("Trenowanie modelu...")
 callback = tf.keras.callbacks.EarlyStopping(
@@ -423,6 +435,7 @@ callback = tf.keras.callbacks.EarlyStopping(
 )
 
 start_time = time.time()
+
 history = model.fit(
     train_dataset,
     validation_data=val_dataset,

@@ -15,7 +15,7 @@ class CDNNModel(tf.keras.Model):
             if i == 0:
                 init_value = 'zero'  # First layer initialized randomly
             else:
-                init_value = 'random_specified'
+                init_value = 'zero'
             print(f"Layer {i + 1}: DOE + Propagation z={distance_between_layers} m init={init_value}")
             self.doe_layers.append(DiffractiveMaskLayer(shape, name=f"doe_{i + 1}", init=init_value))
             self.prop_layers.append(PropagationLayer(
