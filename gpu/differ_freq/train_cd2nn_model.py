@@ -27,7 +27,7 @@ C = 299792458  # [m/s]
 
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
+NUM_LAYERS = 2
 EPOCHS = 300
 # ================================
 # Wavelength from range
@@ -44,9 +44,9 @@ print("Wavelength:", WAVELENGTH_STEP)
 LEARNING_RATE = 0.175                     # ↑ Faster convergence but less stable | ↓ Slower but more stable training
 lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     boundaries=[10, 15, 25, 40, 100],  # Epochs where the learning rate changes
-    values=[0.7, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
+    values=[0.8, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
 )
-BATCH_SIZE = 16                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
+BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
 CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
 SMOOTHNESS_WEIGHT = 1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
@@ -71,7 +71,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 40960  # 40GB limit
+        memory_limit_mb = 30720  # 40GB limit
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
