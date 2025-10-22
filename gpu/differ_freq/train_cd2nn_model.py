@@ -47,11 +47,11 @@ lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     values=[0.8, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
 )
 BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
-CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
+CALLBACK_PATIENCE = 15                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
-SMOOTHNESS_WEIGHT = 1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
-POWER_LOSS_WEIGHT = 1                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
-FOCAL_INTENSITY_WEIGHT = 0.7          # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
+SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
+POWER_LOSS_WEIGHT = 1.2                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS - MODIFIED FOR KINOFORM-LIKE PATTERNS
@@ -352,7 +352,7 @@ def custom_loss_with_model(model):
         shape = tf.shape(y_pred)
         center_y = shape[1] // 2
         center_x = shape[2] // 2
-        window_size = 10
+        window_size = 4
         half_window = window_size // 2
         # Slicing: [center_y-half_window:center_y+half_window, center_x-half_window:center_x+half_window]
         focal_patch = y_pred[:, 
