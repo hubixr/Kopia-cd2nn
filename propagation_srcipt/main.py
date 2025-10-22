@@ -10,12 +10,12 @@ PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
 
 # Frequency range configuration
-FREQUENCY_MIN = 94 * 1e9  # [Hz] - minimum frequency
-FREQUENCY_MAX = 96 * 1e9  # [Hz] - maximum frequency
-FREQUENCY_STEP = 0.05 * 1e9   # [Hz] - step size for frequency variation
+FREQUENCY_MIN = 100 * 1e9  # [Hz] - minimum frequency
+FREQUENCY_MAX = 300 * 1e9  # [Hz] - maximum frequency
+FREQUENCY_STEP = 2 * 1e9   # [Hz] - step size for frequency variation
 
-DISTANCE_BETWEEN_DOE = 0.05 #[m]
-DISTANCE_TO_TARGET = 0.201 #[m]
+DISTANCE_BETWEEN_DOE = 0.10 #[m]
+DISTANCE_TO_TARGET = 0.20 #[m]
 PADDING_MULTIPLIER = 10  # Padding multiplier for the propagation layer
 H_BEFORE_PADDING, W_BEFORE_PADDING = 128, 128  # Size of the image in pixels before padding
 H = 128 * (PADDING_MULTIPLIER + 1)
