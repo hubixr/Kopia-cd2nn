@@ -52,24 +52,18 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         )
         super(DiffractiveMaskLayer, self).build(input_shape)
     
-    # Add explicit casting to float16 for phase and inputs
     def call(self, inputs):
         inputs = tf.cast(inputs, tf.float16)  # Cast inputs to float16
         # print("Doe call")
         re_u = inputs[..., 0]  # Real part
         im_u = inputs[..., 1]  # Imaginary part
         wavelength = inputs[..., 2]  # Wavelengths
-        # print("checking for nans and infs in diffraction layer at the beginning")
+
         re_u = tf.where(tf.math.is_nan(re_u) | tf.math.is_inf(re_u), tf.zeros_like(re_u), re_u)
         im_u = tf.where(tf.math.is_nan(im_u) | tf.math.is_inf(im_u), tf.zeros_like(im_u), im_u)
     
         # Ensure phase is properly managed by TensorFlow
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
-        # Wrap phase to [0, 2π] range
-        # phase = tf.math.floormod(phase, 2 * np.pi)
-        # phase = tf.clip_by_value(phase, 0, 2 * np.pi)
-        # print("phase shape:", phase.shape)
-        # Apply phase modulation
         if im_u is None:
             print("im_u is None")
             out_real = re_u * tf.cos(phase)
@@ -78,11 +72,6 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
             print("im_u is not None")
             out_real = re_u * tf.cos(phase) - im_u * tf.sin(phase)
             out_imag = re_u * tf.sin(phase) + im_u * tf.cos(phase)
-        # print("checking for nans and infs in diffraction layer at the end")
-        # re_u = tf.where(tf.math.is_nan(re_u) | tf.math.is_inf(re_u), tf.zeros_like(re_u), re_u)
-        # im_u = tf.where(tf.math.is_nan(im_u) | tf.math.is_inf(im_u), tf.zeros_like(im_u), im_u)
-        # out_real = tf.where(tf.math.is_nan(out_real) | tf.math.is_inf(out_real), tf.zeros_like(out_real), out_real)
-        # out_imag = tf.where(tf.math.is_nan(out_imag) | tf.math.is_inf(out_imag), tf.zeros_like(out_imag), out_imag)
         print("end doe call")
         out_real = out_real/tf.reduce_max(tf.abs(out_real))
         # tf.print("out_real stats:", tf.reduce_min(out_real), tf.reduce_max(out_real), tf.reduce_mean(out_real))

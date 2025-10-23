@@ -4,15 +4,16 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from pathlib import Path
 from cd2nn_model import CDNNModel
-from DiffractiveMaskLayer import DiffractiveMaskLayer
+
+from pathlib import Path
 import time
-# from tensorflow.keras import mixed_precision
+
 from PIL import Image
 from PIL import ImageOps
 
 # Clear VRAM and reset TensorFlow session
 tf.keras.backend.clear_session()
-
+# from tensorflow.keras import mixed_precision
 # mixed_precision.set_global_policy('float32')
 
 
@@ -21,40 +22,39 @@ tf.keras.backend.clear_session()
 # ================================
 DOE_SHAPE = (128, 128)  # [px]
 PIXEL_SIZE = 9e-4  # [m]
-# FREQUENCY = 96 * 1e9  # [GHz]
 C = 299792458  # [m/s]
-# WAVELENGTH = C / (FREQUENCY)  # [m]
-
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
 NUM_LAYERS = 2
-EPOCHS = 300
+EPOCHS = 150
 # ================================
-# Wavelength from range
 FREQUENCY_MIN = 160 * 1e9
 FREQUENCY_MAX = 200 * 1e9
 FREQUENCY_STEP = 0.5 * 1e9
+STEP_COUNT = (FREQUENCY_MAX - FREQUENCY_MIN) / FREQUENCY_STEP 
+print("Frequency steps:", STEP_COUNT)
 WAVELENGTH_MIN = C / (FREQUENCY_MAX)
 WAVELENGTH_MAX = C / (FREQUENCY_MIN)
-WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / 21
+WAVELENGTH_STEP = (WAVELENGTH_MAX - WAVELENGTH_MIN) / STEP_COUNT #81 steps from 160 to 200 Ghz with 0.5Ghz step
 print("Wavelength:", WAVELENGTH_MIN)
 print("Wavelength:", WAVELENGTH_MAX)
 print("Wavelength:", WAVELENGTH_STEP)
 # ================================
-LEARNING_RATE = 0.175                     # ↑ Faster convergence but less stable | ↓ Slower but more stable training
+LEARNING_RATE = 0.175                     # Currently unused, defined in lr_schedule, needed for file naming
 lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     boundaries=[10, 15, 25, 40, 100],  # Epochs where the learning rate changes
     values=[0.8, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
 )
 BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
 CALLBACK_PATIENCE = 15                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
-CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-4)
-SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations
+CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
+SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
 POWER_LOSS_WEIGHT = 1.2                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
-FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing
-USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss
+FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
+FOCAL_WINDOW_SIZE = 4              # Size of the focal window (default 4)
+USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss (default True)
 # ================================
-# SMOOTHNESS FUNCTION WEIGHTS - MODIFIED FOR KINOFORM-LIKE PATTERNS
+# SMOOTHNESS FUNCTION WEIGHTS 
 # ================================
 SMOOTHNESS_TRADITIONAL_WEIGHT = 0.1   # ↑ Penalize neighbor phase differences more | ↓ Allow sharper phase transitions
 SMOOTHNESS_VARIATION_WEIGHT = 1    # ↑ Enforce uniform local phase variation | ↓ Allow varied local phase patterns
@@ -71,7 +71,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 30720  # 40GB limit
+        memory_limit_mb = 30720  # 30GB limit
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
@@ -82,14 +82,10 @@ if gpus:
         print("Error setting memory limit:", e)
 else:
     print("No GPUs found.")
-# ================================
-# FUNKCJE POMOCNICZE
-# ================================
 
 # Function to load .bmp file and preprocess it for the model
 def load_bmp_fields(file_path, target_shape):
     image = Image.open(file_path).convert('L')  # Convert to grayscale
-    # image = image.resize(target_shape, Image.Resampling.LANCZOS)  # Resize to target shape using LANCZOS
     image_array = np.array(image, dtype=np.float32)  # Convert to numpy array
     image_array = image_array / 255.0  # Normalize to 0-1
     image_array = np.expand_dims(image_array, axis=-1)  # Add channel dimension
@@ -102,7 +98,6 @@ def load_bmp_target_field(target_file, shape):
     target_array = np.expand_dims(target_array, axis=0)  # Add batch dimension
     # Ensure the target array has a channel dimension
     target_array = np.expand_dims(target_array, axis=-1)  # Add channel dimension
-    # print("target_array shape:", target_array.shape)
     return target_array
 
 # Modify the input data to have two channels: one with the BMP values and the second filled with zeros
@@ -116,18 +111,8 @@ def crop_or_resize_input(input_data, target_shape):
     cropped_data = input_data[:, :target_shape[0], :target_shape[1]]  # Crop to target shape
     return cropped_data
 
-# def load_npy_fields(input_dir):
-#     files = sorted(input_dir.glob("*.npy"))
-#     inputs = []
-#     for f in files:
-#         field = np.load(f)  # Load .npy file directly
-#         inputs.append(field)
-#     if not inputs:
-#         raise ValueError("No valid input fields found in the directory.")
-#     return np.stack(inputs, axis=0)
-
 # ================================
-# GLOWNA CZESC
+# MAIN CODE
 # ================================
 print("Laduję dane wejściowe...")
 input_files = sorted(INPUT_DIR.glob("*.npy"))
@@ -144,10 +129,10 @@ if not inputs:
     raise ValueError("No valid input fields found in the directory.")
 input_data = np.stack(inputs, axis=0).astype(np.float32)
 print(f"Input data shape: {input_data.shape}")
+
 # After loading input_data
 print("Example input wavelength channel (first sample):")
 print(input_data[0, :, :, 2])
-
 print(f"Liczba próbek: {input_data.shape[0]}")
 print("Laduję target...")
 target_data = load_bmp_target_field(TARGET_FILE, DOE_SHAPE).astype(np.float32)
@@ -194,7 +179,7 @@ x_test = ((x_test / np.max(np.abs(x_test))))
 # print(f"y_test min: {np.min(y_test)}, max: {np.max(y_test)}, mean: {np.mean(y_test)}")
 
 # ================================
-# BUDOWA MODELU
+# BUILDING MODEL
 # ================================
 print("Budowanie modelu CDNN...")
 model = CDNNModel(
@@ -216,9 +201,7 @@ for i, prop_layer in enumerate(model.prop_layers):
 print(f"Power loss mode: {'All layers' if USE_ALL_LAYERS_POWER_LOSS else 'Final layer only'}")
 print(f"Power loss weight: {POWER_LOSS_WEIGHT}")
 
-loss_fn = tf.keras.losses.MeanSquaredError()  # Absolute Mean Error
 opt = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0) #clipnorm for gradient clipping - better stability
-
 
 def psnr_metric(y_true, y_pred):
     # Ensure both tensors have the same shape
@@ -243,23 +226,11 @@ def calculate_power(y):
 lambda_smooth = SMOOTHNESS_WEIGHT  # Weight for smoothness regularization def 1e-6
 lambda_power = POWER_LOSS_WEIGHT
 def smoothness_regularization(phase):
-    """
-    Simplified smoothness regularization that encourages intermediate phase values
-    and penalizes both no variation and extreme jumps.
-    
-    Args:
-        phase: Tensor of shape (H, W), the phase mask in range [0, 2π].
-    Returns:
-        Smoothness regularization term (scalar).
-    """
-    pi2 = tf.constant(2 * np.pi, dtype=phase.dtype)
-    
+    pi2 = tf.constant(2 * np.pi, dtype=phase.dtype) 
     # Ensure phase is in [0, 2π] range
     phase = tf.math.floormod(phase, pi2)
-    
     # Part 1: Traditional smoothness (8-neighbor differences with periodic wrapping)
     phase_padded = tf.pad(phase, [[1, 1], [1, 1]], mode='REFLECT')
-    
     # All 8 neighbors
     neighbors = [
         phase_padded[0:-2, 1:-1],  # top
@@ -326,41 +297,27 @@ def custom_loss_with_model(model):
         for i, layer in enumerate(model.doe_layers):
             layer_smoothness = smoothness_regularization(layer.phase)
             smoothness_loss += layer_smoothness
-            # Debug: Print smoothness loss for each layer during training
-            # if i == 0:  # Only print for debugging, can remove later
-                # tf.print(f"Layer {i+1} smoothness loss:", layer_smoothness)
-        
-        # Power loss calculation - choose between all layers or only final layer
+
         if USE_ALL_LAYERS_POWER_LOSS:
             # Power loss from all propagation layers - calculate cumulatively
             remaining_power = 1.0  # Start with 100% power
             for i, power_loss in enumerate(model.all_power_losses):
                 layer_power_loss = tf.reduce_mean(power_loss)
-                remaining_power = remaining_power * (1.0 - layer_power_loss)  # Apply sequential loss
-                # Optional: print power loss for each layer during training
-                # tf.print(f"Layer {i+1} power loss:", layer_power_loss * 100, "%")
-            
-            total_power_loss = 1.0 - remaining_power  # Total cumulative power loss
-            # tf.print("Total power loss:", total_power_loss * 100, "%")
+                remaining_power = remaining_power * (1.0 - layer_power_loss)
+            total_power_loss = 1.0 - remaining_power  
             power_loss_term = total_power_loss
         else:
-            # Power loss from final layer only (original behavior)
+            # Power loss from final layer only 
             power_loss_term = tf.reduce_mean(model.last_power_loss)
-            # tf.print("Final layer power loss:", power_loss_term * 100, "%")
 
-        # Focal intensity: mean value in a 10x10 px window at the center of the field
         shape = tf.shape(y_pred)
         center_y = shape[1] // 2
         center_x = shape[2] // 2
-        window_size = 4
-        half_window = window_size // 2
-        # Slicing: [center_y-half_window:center_y+half_window, center_x-half_window:center_x+half_window]
+        half_window = FOCAL_WINDOW_SIZE // 2
         focal_patch = y_pred[:, 
                              center_y-half_window:center_y+half_window, 
                              center_x-half_window:center_x+half_window]
         focal_intensity = tf.reduce_mean(focal_patch) 
-
-        # Combine the losses (add a negative sign to maximize focal intensity)
         total_loss = (
             mse_loss
             + lambda_smooth * smoothness_loss
@@ -369,16 +326,13 @@ def custom_loss_with_model(model):
         )
         
         # Debug: Print loss components occasionally
-        tf.print("MSE:", mse_loss, "Smooth:", lambda_smooth * smoothness_loss, "Power:", lambda_power * power_loss_term, "Focal:", FOCAL_INTENSITY_WEIGHT * focal_intensity)
-        
+        # tf.print("MSE:", mse_loss, "Smooth:", lambda_smooth * smoothness_loss, "Power:", lambda_power * power_loss_term, "Focal:", FOCAL_INTENSITY_WEIGHT * focal_intensity)
         return total_loss
 
     return custom_loss
 
-
+# Compile the model with the custom loss function
 model.compile(optimizer=opt, loss=custom_loss_with_model(model), metrics=[psnr_metric])
-
-
 print("Tworzenie datasetów...")
 start_time = time.time()
 # Reduce batch size for better accuracy
@@ -388,7 +342,7 @@ print(f"Data loading time: {end_time - start_time:.2f} seconds")
 val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
 test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
 
-from pathlib import Path
+
 
 # Create temporary directory structure for callbacks - will be updated after evaluation
 temp_phase_histograms_dir = Path("temp_phase_histograms")
@@ -424,7 +378,7 @@ class PhaseHistogramCallback(tf.keras.callbacks.Callback):
         out_path = self.save_dir / f'phase_hist_epoch_{epoch:04d}.png'
         plt.savefig(out_path)
         plt.close(fig)
-        print(f"Saved phase histogram(s) for epoch {epoch} to {out_path}")
+        # print(f"Saved phase histogram(s) for epoch {epoch} to {out_path}")
 
 print("Trenowanie modelu...")
 callback = tf.keras.callbacks.EarlyStopping(
@@ -459,14 +413,6 @@ power_loss_mode = "all_layers" if USE_ALL_LAYERS_POWER_LOSS else "final_only"
 file_suffix = f"PSNR_{psnr_value:.2f}_b_{BATCH_SIZE}_l_{NUM_LAYERS}_ep_{EPOCHS}_lr_{LEARNING_RATE:.3f}_dist_doe_{PROPAGATION_DISTANCE_BEETWEEN_DOE:.3f}_dist_target_{PROPAGATION_DISTANCE_TO_TARGET:.3f}_shape_{DOE_SHAPE[0]}x{DOE_SHAPE[1]}"
 
 def periodic_phase_optimization(phase):
-    """
-    Post-process a phase mask to reduce sharp discontinuities by adjusting each pixel by -2π, 0, or +2π
-    to minimize the sum of squared phase differences with its 4-connected neighbors.
-    Args:
-        phase: tf.Tensor of shape [H, W], dtype float32, values in [0, 2π)
-    Returns:
-        optimized_phase: tf.Tensor of shape [H, W], dtype float32
-    """
     pi2 = tf.constant(2 * np.pi, dtype=phase.dtype)
     H = tf.shape(phase)[0]
     W = tf.shape(phase)[1]
@@ -508,7 +454,7 @@ def periodic_phase_optimization(phase):
     optimized_phase = tf.gather_nd(candidates, gather_idx)  # shape: [H, W]
 
     # Optionally wrap back to [0, 2pi)
-    optimized_phase = tf.math.floormod(optimized_phase, pi2)
+    # optimized_phase = tf.math.floormod(optimized_phase, pi2)
     return optimized_phase
 
 # Create organized output directory using file_suffix
@@ -548,7 +494,12 @@ power_loss_info.append("=== MODEL PARAMETERS AND POWER LOSS ANALYSIS ===\n\n")
 
 # Add training parameters
 power_loss_info.append("Training Parameters:\n")
-power_loss_info.append(f"  - Learning Rate: {LEARNING_RATE}\n")
+# Extract learning rate schedule details
+lr_boundaries = lr_schedule.boundaries if hasattr(lr_schedule, 'boundaries') else []
+lr_values = lr_schedule.values if hasattr(lr_schedule, 'values') else [LEARNING_RATE]
+power_loss_info.append(f"  - Learning Rate Schedule:\n")
+power_loss_info.append(f"      Boundaries (epochs): {[int(b) for b in lr_boundaries]}\n")
+power_loss_info.append(f"      Learning rates: {[float(v) for v in lr_values]}\n")
 power_loss_info.append(f"  - Batch Size: {BATCH_SIZE}\n")
 power_loss_info.append(f"  - Epochs: {EPOCHS}\n")
 power_loss_info.append(f"  - Callback Patience: {CALLBACK_PATIENCE}\n")

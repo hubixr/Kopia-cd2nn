@@ -40,6 +40,8 @@ class PropagationLayer(tf.keras.layers.Layer):
             # Stack real, imag, wavelength as channels
             h_table.append(np.stack([h_real, h_imag, h_wavelength], axis=-1))  # shape: [H, W, 3]
         h_table = np.stack(h_table, axis=0)  # shape: [num_wavelengths, H, W, 3]
+        print("h_table shape:", h_table.shape, "total elements:", h_table.size)
+        # print("h_table values:\n", h_table)
         self.h_table = self.add_weight(
             name="h_table",
             shape=h_table.shape,
@@ -82,6 +84,10 @@ class PropagationLayer(tf.keras.layers.Layer):
         
         # Get wavelength for each sample in batch
         wl_values = wavelength[:, 0, 0]  # Shape: (batch_size,)
+        
+        # Print current wavelength values being used
+        # tf.print("Current wavelength values (m):", wl_values, summarize=-1)
+        # tf.print("Current wavelength values (μm):", wl_values * 1e6, summarize=-1)
         
         # Find wavelength indices for all samples at once
         wl_indices = tf.map_fn(

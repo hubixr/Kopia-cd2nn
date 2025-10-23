@@ -1,4 +1,2 @@
-sample_outputs/
-saved_histories/
 models/
 *.keras
