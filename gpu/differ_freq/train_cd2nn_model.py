@@ -49,9 +49,9 @@ BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | �
 CALLBACK_PATIENCE = 15                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
 SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
-POWER_LOSS_WEIGHT = 1.2                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+POWER_LOSS_WEIGHT = 0.4                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
 FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
-FOCAL_WINDOW_SIZE = 4              # Size of the focal window (default 4)
+FOCAL_WINDOW_SIZE = 128              # Size of the focal window (default 4)
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss (default True)
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS 
