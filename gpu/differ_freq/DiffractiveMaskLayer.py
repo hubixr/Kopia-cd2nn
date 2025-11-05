@@ -27,7 +27,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         # Initialize phase as a trainable weight
-        phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)
+        # phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)
         if self.init_ == 'random_full':
             initializer = tf.keras.initializers.RandomUniform(0.0, 2 * np.pi, seed=42)
         elif self.init_ == 'random_specified':
@@ -58,12 +58,18 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         re_u = inputs[..., 0]  # Real part
         im_u = inputs[..., 1]  # Imaginary part
         wavelength = inputs[..., 2]  # Wavelengths
+        f_0 = 180e9  # Reference frequency in Hz
+        wavelength_0 = 3e8 / f_0  # Reference wavelength in meters
 
         re_u = tf.where(tf.math.is_nan(re_u) | tf.math.is_inf(re_u), tf.zeros_like(re_u), re_u)
         im_u = tf.where(tf.math.is_nan(im_u) | tf.math.is_inf(im_u), tf.zeros_like(im_u), im_u)
-    
+
         # Ensure phase is properly managed by TensorFlow
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
+        phase = phase * (wavelength_0 / wavelength)  # Scale phase with wavelength
+
+        phase = tf.math.mod(phase, 2 * np.pi)  # Wrap phase to [0, 2π]
+        
         if im_u is None:
             print("im_u is None")
             out_real = re_u * tf.cos(phase)

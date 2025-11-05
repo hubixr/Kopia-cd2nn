@@ -25,11 +25,11 @@ PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 2
+NUM_LAYERS = 1
 EPOCHS = 150
 # ================================
-FREQUENCY_MIN = 160 * 1e9
-FREQUENCY_MAX = 200 * 1e9
+FREQUENCY_MIN = 150 * 1e9
+FREQUENCY_MAX = 210 * 1e9
 FREQUENCY_STEP = 0.5 * 1e9
 STEP_COUNT = (FREQUENCY_MAX - FREQUENCY_MIN) / FREQUENCY_STEP 
 print("Frequency steps:", STEP_COUNT)
@@ -46,12 +46,12 @@ lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     values=[0.8, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
 )
 BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
-CALLBACK_PATIENCE = 15                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
+CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
 SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
-POWER_LOSS_WEIGHT = 0.4                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+POWER_LOSS_WEIGHT = 0.5                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
 FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
-FOCAL_WINDOW_SIZE = 128              # Size of the focal window (default 4)
+FOCAL_WINDOW_SIZE = 10              # Size of the focal window (default 4)
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss (default True)
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS 
@@ -402,7 +402,6 @@ model.summary()
 keras.utils.plot_model(model, show_shapes=True, to_file='model_plot.png')
 end_time = time.time()
 print(f"Model training time: {end_time - start_time:.2f} seconds")
-
 print("Ocena modelu na zbiorze testowym:")
 evaluation_results = model.evaluate(test_dataset)
 print(evaluation_results)
@@ -571,7 +570,9 @@ for i, layer in enumerate(model.doe_layers):
     # Convert wrapped phase to tf.Tensor for optimization
     phase_tensor = tf.convert_to_tensor(phase_wrapped, dtype=tf.float32)
     # Optimize phase mask to reduce discontinuities
-    optimized_phase = periodic_phase_optimization(phase_tensor).numpy()
+
+    #commented for test
+    optimized_phase = phase_tensor.numpy() #periodic_phase_optimization(phase_tensor).numpy()
     
     # Verify optimized phase range
     print(f"DOE Layer {i+1} - Optimized phase range: [{np.min(optimized_phase):.3f}, {np.max(optimized_phase):.3f}] radians")

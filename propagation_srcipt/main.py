@@ -10,8 +10,8 @@ PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
 
 # Frequency range configuration
-FREQUENCY_MIN = 160 * 1e9  # [Hz] - minimum frequency
-FREQUENCY_MAX = 200 * 1e9  # [Hz] - maximum frequency
+FREQUENCY_MIN = 100 * 1e9  # [Hz] - minimum frequency
+FREQUENCY_MAX = 300 * 1e9  # [Hz] - maximum frequency
 FREQUENCY_STEP = 5 * 1e9   # [Hz] - step size for frequency variation
 
 DISTANCE_BETWEEN_DOE = 0.10 #[m]

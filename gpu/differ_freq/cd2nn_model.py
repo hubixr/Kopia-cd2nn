@@ -9,7 +9,7 @@ class CDNNModel(tf.keras.Model):
         self.shape_ = shape
         self.doe_layers = []
         self.prop_layers = []
-          
+        
         # Create intermediate DOE and propagation layers
         for i in range(num_layers - 1):
             if i == 0:
