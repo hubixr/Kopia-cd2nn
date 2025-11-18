@@ -25,11 +25,11 @@ PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
+NUM_LAYERS = 2
 EPOCHS = 150
 # ================================
-FREQUENCY_MIN = 150 * 1e9
-FREQUENCY_MAX = 210 * 1e9
+FREQUENCY_MIN = 130 * 1e9
+FREQUENCY_MAX = 200 * 1e9
 FREQUENCY_STEP = 0.5 * 1e9
 STEP_COUNT = (FREQUENCY_MAX - FREQUENCY_MIN) / FREQUENCY_STEP 
 print("Frequency steps:", STEP_COUNT)
@@ -49,9 +49,9 @@ BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | �
 CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
 SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
-POWER_LOSS_WEIGHT = 0.5                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
-FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
-FOCAL_WINDOW_SIZE = 10              # Size of the focal window (default 4)
+POWER_LOSS_WEIGHT = 0.8                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+FOCAL_INTENSITY_WEIGHT = 0.1         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
+FOCAL_WINDOW_SIZE = 8              # Size of the focal window (default 4)
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss (default True)
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS 
@@ -71,7 +71,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 30720  # 30GB limit
+        memory_limit_mb = 32 * 1024  # 32 GB limit (in MB)
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
@@ -335,12 +335,47 @@ def custom_loss_with_model(model):
 model.compile(optimizer=opt, loss=custom_loss_with_model(model), metrics=[psnr_metric])
 print("Tworzenie datasetów...")
 start_time = time.time()
-# Reduce batch size for better accuracy
-train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(500).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
+
+# ================================
+# OPTIMIZED DATA LOADING PIPELINE
+# ================================
+AUTOTUNE = tf.data.AUTOTUNE
+
+# Convert to float16 before creating datasets for efficiency
+x_train_fp16 = x_train.astype(np.float16)
+y_train_fp16 = y_train.astype(np.float16)
+x_val_fp16 = x_val.astype(np.float16)
+y_val_fp16 = y_val.astype(np.float16)
+x_test_fp16 = x_test.astype(np.float16)
+y_test_fp16 = y_test.astype(np.float16)
+
+# Training dataset with optimizations
+train_dataset = (
+    tf.data.Dataset.from_tensor_slices((x_train_fp16, y_train_fp16))
+    .shuffle(buffer_size=1000, reshuffle_each_iteration=True)  # Larger buffer for better randomization
+    .batch(BATCH_SIZE, drop_remainder=True)  # Drop remainder for consistent batch sizes
+    .prefetch(AUTOTUNE)  # Overlap CPU data loading with GPU training
+)
+
+# Validation dataset with prefetch
+val_dataset = (
+    tf.data.Dataset.from_tensor_slices((x_val_fp16, y_val_fp16))
+    .batch(BATCH_SIZE, drop_remainder=False)
+    .prefetch(AUTOTUNE)
+)
+
+# Test dataset with prefetch
+test_dataset = (
+    tf.data.Dataset.from_tensor_slices((x_test_fp16, y_test_fp16))
+    .batch(BATCH_SIZE, drop_remainder=False)
+    .prefetch(AUTOTUNE)
+)
+
 end_time = time.time()
-print(f"Data loading time: {end_time - start_time:.2f} seconds")
-val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
-test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(BATCH_SIZE).map(lambda x, y: (tf.cast(x, tf.float16), tf.cast(y, tf.float16)))
+print(f"Data loading pipeline setup time: {end_time - start_time:.2f} seconds")
+print(f"Training dataset: {len(x_train_fp16)} samples, batch size: {BATCH_SIZE}")
+print(f"Validation dataset: {len(x_val_fp16)} samples")
+print(f"Test dataset: {len(x_test_fp16)} samples")
 
 
 
