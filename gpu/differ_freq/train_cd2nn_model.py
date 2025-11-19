@@ -50,7 +50,7 @@ CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | �
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
 SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
 POWER_LOSS_WEIGHT = 0.8                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
-FOCAL_INTENSITY_WEIGHT = 0.1         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
+FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
 FOCAL_WINDOW_SIZE = 8              # Size of the focal window (default 4)
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss (default True)
 # ================================

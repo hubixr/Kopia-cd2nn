@@ -14,7 +14,7 @@ class PropagationLayer(tf.keras.layers.Layer):
         self.shape_ = shape
         self.H, self.W = shape
         self.power_loss = None  # Placeholder for power loss
-        self.padding_multiplier = 8
+        self.padding_multiplier = 5
         # Prepare wavelength table
         self.wavelengths = np.arange(self.wavelength_min, self.wavelength_max + self.wavelength_step, self.wavelength_step)
 
