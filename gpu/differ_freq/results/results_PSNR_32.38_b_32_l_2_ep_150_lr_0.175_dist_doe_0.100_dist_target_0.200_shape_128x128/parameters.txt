@@ -2,7 +2,7 @@
 
 Training Parameters:
   - Learning Rate Schedule:
-      Boundaries (epochs): [10, 15, 25, 40, 100]
+      Boundaries (epochs): [10, 15, 25, 40, 85]
       Learning rates: [0.8, 0.4, 0.2, 0.05, 0.03, 0.01]
   - Batch Size: 32
   - Epochs: 150
@@ -13,31 +13,31 @@ Training Parameters:
   - Smoothness Variation Weight: 1
   - Smoothness Binary Weight: 0.1
   - Smoothness Target Std Percent: 0.1
-  - Power Loss Weight: 0.5
+  - Power Loss Weight: 0.8
   - Focal Intensity Weight: 0
   - Use All Layers Power Loss: True
 
 Model Configuration:
   - Number of DOE layers: 2
   - DOE shape: (128, 128)
-  - Wavelength_min: 1.43e-03 m
-  - Wavelength_max: 2.00e-03 m
-  - Wavelength_step: 4.76e-06 m
+  - Wavelength_min: 1.20e-03 m
+  - Wavelength_max: 1.30e-03 m
+  - Wavelength_step: 5.21e-07 m
   - Distance between DOEs: 0.1 m
   - Distance to target: 0.2 m
   - Pixel size: 9.00e-04 m
 
 Power Loss per Layer:
-  Layer 1: 0.628851 (62.8851% of incident power)
+  Layer 1: 0.586961 (58.6961% of incident power)
     Power before layer 1: 1.000000 (100.0000%)
-    Power after layer 1: 0.371149 (37.1149%)
+    Power after layer 1: 0.413039 (41.3039%)
 
-  Layer 2: 0.426840 (42.6840% of incident power)
-    Power before layer 2: 0.371149 (37.1149%)
-    Power after layer 2: 0.212728 (21.2728%)
+  Layer 2: 0.435595 (43.5595% of incident power)
+    Power before layer 2: 0.413039 (41.3039%)
+    Power after layer 2: 0.233121 (23.3121%)
 
-Total Cumulative Power Loss: 0.787272 (78.7272%)
-Final Power Transmission: 0.212728 (21.2728%)
-Power Efficiency: 21.2728%
+Total Cumulative Power Loss: 0.766879 (76.6879%)
+Final Power Transmission: 0.233121 (23.3121%)
+Power Efficiency: 23.3121%
 
-Final Layer Power Loss: 0.426840 (42.6840%)
+Final Layer Power Loss: 0.435595 (43.5595%)

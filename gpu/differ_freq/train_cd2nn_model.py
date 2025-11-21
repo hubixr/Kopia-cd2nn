@@ -48,6 +48,7 @@ lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
 BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
 CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
+MSE_WEIGHT = 4.0                       # ↑ Higher MSE weight prioritizes reconstruction accuracy | ↓ Lower MSE weight allows other losses to dominate (default 1.0)
 SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
 POWER_LOSS_WEIGHT = 0.8                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
 FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
@@ -71,7 +72,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 32 * 1024  # 32 GB limit (in MB)
+        memory_limit_mb = 16 * 1024  # 32 GB limit (in MB)
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
@@ -223,6 +224,7 @@ def psnr_metric(y_true, y_pred):
 def calculate_power(y):
     return tf.reduce_sum(tf.square(y), axis=[1, 2])
 
+lambda_mse = MSE_WEIGHT                 # Weight for MSE loss
 lambda_smooth = SMOOTHNESS_WEIGHT  # Weight for smoothness regularization def 1e-6
 lambda_power = POWER_LOSS_WEIGHT
 def smoothness_regularization(phase):
@@ -290,7 +292,7 @@ def smoothness_regularization(phase):
 def custom_loss_with_model(model):
     def custom_loss(y_true, y_pred):
         # Compute the standard loss (e.g., Mean Squared Error)
-        mse_loss = tf.reduce_mean(tf.square(y_true - y_pred))
+        mse_loss = lambda_mse * tf.reduce_mean(tf.square(y_true - y_pred))
 
         # Add smoothness regularization for each phase mask
         smoothness_loss = 0
@@ -319,7 +321,7 @@ def custom_loss_with_model(model):
                              center_x-half_window:center_x+half_window]
         focal_intensity = tf.reduce_mean(focal_patch) 
         total_loss = (
-            mse_loss
+            mse_loss  # MSE already has lambda_mse applied
             + lambda_smooth * smoothness_loss
             + lambda_power * power_loss_term  # Now can use power loss from all layers or just final
             - FOCAL_INTENSITY_WEIGHT * focal_intensity  # Adjust weight as needed
@@ -538,6 +540,7 @@ power_loss_info.append(f"  - Batch Size: {BATCH_SIZE}\n")
 power_loss_info.append(f"  - Epochs: {EPOCHS}\n")
 power_loss_info.append(f"  - Callback Patience: {CALLBACK_PATIENCE}\n")
 power_loss_info.append(f"  - Callback Min Delta: {CALLBACK_MIN_DELTA}\n")
+power_loss_info.append(f"  - MSE Weight: {MSE_WEIGHT}\n")
 power_loss_info.append(f"  - Smoothness Weight: {SMOOTHNESS_WEIGHT}\n")
 power_loss_info.append(f"  - Smoothness Traditional Weight: {SMOOTHNESS_TRADITIONAL_WEIGHT}\n")
 power_loss_info.append(f"  - Smoothness Variation Weight: {SMOOTHNESS_VARIATION_WEIGHT}\n")
