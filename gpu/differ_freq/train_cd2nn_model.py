@@ -25,12 +25,12 @@ PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
 PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 2
+NUM_LAYERS = 1
 EPOCHS = 150
 # ================================
-FREQUENCY_MIN = 130 * 1e9
-FREQUENCY_MAX = 200 * 1e9
-FREQUENCY_STEP = 0.5 * 1e9
+FREQUENCY_MIN = 180 * 1e9
+FREQUENCY_MAX = 250 * 1e9
+FREQUENCY_STEP = 1 * 1e9
 STEP_COUNT = (FREQUENCY_MAX - FREQUENCY_MIN) / FREQUENCY_STEP 
 print("Frequency steps:", STEP_COUNT)
 WAVELENGTH_MIN = C / (FREQUENCY_MAX)
@@ -45,10 +45,10 @@ lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
     boundaries=[10, 15, 25, 40, 100],  # Epochs where the learning rate changes
     values=[0.8, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
 )
-BATCH_SIZE = 32                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
+BATCH_SIZE = 16                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
 CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
-MSE_WEIGHT = 4.0                       # ↑ Higher MSE weight prioritizes reconstruction accuracy | ↓ Lower MSE weight allows other losses to dominate (default 1.0)
+MSE_WEIGHT = 6.0                       # ↑ Higher MSE weight prioritizes reconstruction accuracy | ↓ Lower MSE weight allows other losses to dominate (default 1.0)
 SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
 POWER_LOSS_WEIGHT = 0.8                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
 FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
@@ -72,7 +72,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 16 * 1024  # 32 GB limit (in MB)
+        memory_limit_mb = 32 * 1024  # 32 GB limit (in MB)
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
