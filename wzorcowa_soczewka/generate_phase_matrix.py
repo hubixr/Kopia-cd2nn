@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 C = 299792458  # [m/s]
-FREQUENCY = 180 * 1e9
+FREQUENCY = 175 * 1e9
 WAVELENGTH = C / (FREQUENCY)
 print(f"Wavelength: {WAVELENGTH*1e6:.2f} μm")
 FOCAL_LENGTH = 0.2  # [m]

@@ -3,6 +3,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy.fft import rfft2, irfft2, fft2, ifft2
+from scipy.interpolate import interp1d
 
 
 #Config
@@ -10,12 +11,14 @@ PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
 
 # Frequency range configuration
-FREQUENCY_MIN = 150 * 1e9  # [Hz] - minimum frequency
-FREQUENCY_MAX = 250 * 1e9  # [Hz] - maximum frequency
-FREQUENCY_STEP = 5 * 1e9   # [Hz] - step size for frequency variation
+FREQUENCY_MIN = 100 * 1e9  # [Hz] - minimum frequency
+FREQUENCY_MAX = 300 * 1e9  # [Hz] - maximum frequency
+FREQUENCY_STEP = 10 * 1e9   # [Hz] - step size for frequency variation
+DWL = 180e9  # [Hz] - reference frequency for wavelength channel
+DWL_VALUE = C / DWL  # [m] - reference wavelength value
 
-DISTANCE_BETWEEN_DOE = 0.101 #[m]
-DISTANCE_TO_TARGET = 0.201 #[m]
+DISTANCE_BETWEEN_DOE = 0.05 #[m]
+DISTANCE_TO_TARGET = 0.20 #[m]
 PADDING_MULTIPLIER = 10  # Padding multiplier for the propagation layer
 H_BEFORE_PADDING, W_BEFORE_PADDING = 128, 128  # Size of the image in pixels before padding
 H = 128 * (PADDING_MULTIPLIER + 1)
@@ -123,6 +126,9 @@ for freq_idx, frequency in enumerate(frequency_values):
         re_u = U_current[..., 0]
         im_u = U_current[..., 1]
         phase = np.pad(phase_masks[i], ((pad_size, pad_size), (pad_size, pad_size)), mode='constant')
+
+        #phase_scale
+        phase = phase * (wavelength / DWL_VALUE)
 
         # Apply phase mask correctly (save original values)
         re_u_new = re_u * np.cos(phase) - im_u * np.sin(phase)
@@ -242,9 +248,46 @@ for freq_idx, frequency in enumerate(frequency_values):
 # After processing all frequencies, create comparison plots
 print("\nGenerating frequency comparison plots...")
 
+# Function to calculate FWHM from 1D intensity profile
+def calculate_fwhm(intensity_profile):
+    """Calculate Full Width at Half Maximum from a 1D intensity profile"""
+    if intensity_profile.max() == 0:
+        return 0
+    
+    # Find half maximum value
+    half_max = intensity_profile.max() / 2.0
+    
+    # Find indices where intensity is above half maximum
+    above_half = np.where(intensity_profile >= half_max)[0]
+    
+    if len(above_half) == 0:
+        return 0
+    
+    # FWHM is the width of the region above half maximum (in pixels)
+    fwhm_pixels = above_half[-1] - above_half[0]
+    
+    # Convert to mm (distance)
+    fwhm_mm = fwhm_pixels * PIXEL_SIZE * 1000
+    
+    return fwhm_mm
+
+# Calculate FWHM for each frequency
+fwhm_values = []
+for freq in sorted(all_results.keys()):
+    intensity = all_results[freq]['final_intensity']
+    center_y = intensity.shape[0] // 2
+    cross_section = intensity[center_y, :]
+    fwhm = calculate_fwhm(cross_section)
+    all_results[freq]['fwhm'] = fwhm
+    fwhm_values.append(fwhm)
+
 # Create comparison directory
 comparison_dir = Path('results_between/frequency_comparisons')
 comparison_dir.mkdir(parents=True, exist_ok=True)
+
+# Create data export directory
+data_export_dir = Path('frequency_data')
+data_export_dir.mkdir(parents=True, exist_ok=True)
 
 # Extract data for plotting
 freq_list = sorted(all_results.keys())
@@ -252,6 +295,27 @@ max_intensities = [all_results[f]['max_intensity'] for f in freq_list]
 total_powers = [all_results[f]['total_power'] for f in freq_list]
 power_losses = [all_results[f]['power_loss_percent'] for f in freq_list]
 freq_ghz = [f/1e9 for f in freq_list]
+
+# Save FWHM and Max Intensity data to files for combining multiple runs
+# Create timestamp or run identifier
+from datetime import datetime
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# Save FWHM data
+fwhm_file = data_export_dir / f'fwhm_data_{timestamp}.csv'
+with open(fwhm_file, 'w') as f:
+    f.write("Frequency_GHz,FWHM_mm\n")
+    for freq_ghz_val, fwhm_val in zip(freq_ghz, fwhm_values):
+        f.write(f"{freq_ghz_val:.1f},{fwhm_val:.6f}\n")
+print(f"Saved FWHM data to: {fwhm_file}")
+
+# Save Max Intensity data
+max_intensity_file = data_export_dir / f'max_intensity_data_{timestamp}.csv'
+with open(max_intensity_file, 'w') as f:
+    f.write("Frequency_GHz,Max_Intensity\n")
+    for freq_ghz_val, max_int in zip(freq_ghz, max_intensities):
+        f.write(f"{freq_ghz_val:.1f},{max_int:.6f}\n")
+print(f"Saved Max Intensity data to: {max_intensity_file}")
 
 # Plot max intensity vs frequency
 plt.figure(figsize=(10, 6))
@@ -284,6 +348,17 @@ plt.ylabel('Power Loss [%]')
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
 plt.savefig(comparison_dir / 'power_loss_vs_frequency.png', dpi=300)
+plt.close()
+
+# Plot FWHM vs frequency
+plt.figure(figsize=(10, 6))
+plt.plot(freq_ghz, fwhm_values, 'purple', marker='o', linewidth=2, markersize=6)
+plt.title('FWHM vs Frequency')
+plt.xlabel('Frequency [GHz]')
+plt.ylabel('FWHM [mm]')
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(comparison_dir / 'fwhm_vs_frequency.png', dpi=300)
 plt.close()
 
 # Create side-by-side comparison of outputs at different frequencies
@@ -344,6 +419,7 @@ for freq in freq_list:
     print(f"  Max intensity: {result['max_intensity']:.6f}")
     print(f"  Total power: {result['total_power']:.6f}")
     print(f"  Power loss: {result['power_loss_percent']:.2f}%")
+    print(f"  FWHM: {result['fwhm']:.4f} mm")
     print()
 
 # Find optimal frequency
@@ -359,14 +435,24 @@ worst_efficiency_freq = max(freq_list, key=lambda f: all_results[f]['power_loss_
 print(f"Lowest power loss at: {best_efficiency_freq/1e9:.1f} GHz (Power loss: {all_results[best_efficiency_freq]['power_loss_percent']:.2f}%)")
 print(f"Highest power loss at: {worst_efficiency_freq/1e9:.1f} GHz (Power loss: {all_results[worst_efficiency_freq]['power_loss_percent']:.2f}%)")
 
+# Find best and worst FWHM frequencies
+best_fwhm_freq = min(freq_list, key=lambda f: all_results[f]['fwhm'])
+worst_fwhm_freq = max(freq_list, key=lambda f: all_results[f]['fwhm'])
+print(f"Smallest FWHM at: {best_fwhm_freq/1e9:.1f} GHz (FWHM: {all_results[best_fwhm_freq]['fwhm']:.4f} mm)")
+print(f"Largest FWHM at: {worst_fwhm_freq/1e9:.1f} GHz (FWHM: {all_results[worst_fwhm_freq]['fwhm']:.4f} mm)")
+
 print("\nResults saved in:")
 print("- Individual frequency results: results_between/frequency_[freq]GHz/")
 print("- Comparison plots: results_between/frequency_comparisons/")
 print("  - max_intensity_vs_frequency.png")
 print("  - total_power_vs_frequency.png")
 print("  - power_loss_vs_frequency.png")
+print("  - fwhm_vs_frequency.png")
 print("  - all_frequencies_comparison.png")
 print("  - cross_sections_comparison.png")
+print("- Exportable data (for combining multiple runs): frequency_data/")
+print("  - fwhm_data_[timestamp].csv")
+print("  - max_intensity_data_[timestamp].csv")
 print("="*60)
 
 

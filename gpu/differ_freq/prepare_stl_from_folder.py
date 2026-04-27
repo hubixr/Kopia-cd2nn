@@ -44,6 +44,8 @@ print(f'h_max = {h_max}')
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
+import os
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
 # Update the script to process all BMP files in the folder and save STL files in a separate folder
 output_folder = Path("./stl_models")

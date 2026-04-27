@@ -3,3 +3,30 @@
 logs/
 *.npy
 input_fields/
+
+# Binary files
+*.png
+*.bmp
+*.jpg
+*.jpeg
+*.gif
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Data directories
+data/
+results_*/
+frequency_data/
+Seria5/
+70-140_v1/
+
+# Temporary files
+*.csv
+*.h5
+*.pkl

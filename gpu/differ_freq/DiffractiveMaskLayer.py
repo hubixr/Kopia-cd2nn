@@ -2,7 +2,8 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-phase_mask_path = "validation_data_lenses/phase_mask/lens_px_0.9mm_size_128_frequency180GHz_f_200mm.bmp"  
+phase_mask_path = "validation_data_lenses/phase_mask/phase_matrix_128x128_180ghz_200mm.bmp"
+phase_mask_path_2 = "validation_data_lenses/phase_mask/phase_matrix_128x128_100ghz_30mm.bmp"  
 
 # Currently, the phase is initialized randomly, but it can be replaced with a constant value.
 def load_bmp_as_input(file_path, target_shape):
@@ -20,14 +21,16 @@ def load_bmp_as_input(file_path, target_shape):
     return image_array
 
 class DiffractiveMaskLayer(tf.keras.layers.Layer):
-    def __init__(self, shape, name=None, init='zero'):
+    def __init__(self, shape, dwl=300e9, name=None, init='zero'):
         super(DiffractiveMaskLayer, self).__init__(name=name)
         self.shape_ = shape
+        self.dwl = dwl
         self.init_ = init
 
     def build(self, input_shape):
         # Initialize phase as a trainable weight
-        # phase_mask = load_bmp_as_input(phase_mask_path, self.shape_)
+        phase_mask_200 = load_bmp_as_input(phase_mask_path, self.shape_)
+        phase_mask_300 = load_bmp_as_input(phase_mask_path_2, self.shape_)
         if self.init_ == 'random_full':
             initializer = tf.keras.initializers.RandomUniform(0.0, 2 * np.pi, seed=42)
         elif self.init_ == 'random_specified':
@@ -38,8 +41,10 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
             initializer = tf.keras.initializers.Constant(random_phases)
         elif self.init_ == 'zero':
             initializer = tf.keras.initializers.Constant(0.0)
-        elif self.init_ == 'pi':
-            initializer = tf.keras.initializers.Constant(np.pi)
+        elif self.init_ == '200mm':
+            initializer = tf.keras.initializers.Constant(phase_mask_200)
+        elif self.init_ == '300mm':
+            initializer = tf.keras.initializers.Constant(phase_mask_300)
         else:
             raise ValueError(f"Unknown init: {self.init_}")
         
@@ -58,8 +63,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         re_u = inputs[..., 0]  # Real part
         im_u = inputs[..., 1]  # Imaginary part
         wavelength = inputs[..., 2]  # Wavelengths
-        f_0 = 180e9  # Reference frequency in Hz
-        wavelength_0 = 3e8 / f_0  # Reference wavelength in meters
+        wavelength_0 = 299792458 / self.dwl  # Reference wavelength in meters
 
         re_u = tf.where(tf.math.is_nan(re_u) | tf.math.is_inf(re_u), tf.zeros_like(re_u), re_u)
         im_u = tf.where(tf.math.is_nan(im_u) | tf.math.is_inf(im_u), tf.zeros_like(im_u), im_u)
@@ -68,7 +72,7 @@ class DiffractiveMaskLayer(tf.keras.layers.Layer):
         phase = tf.cast(tf.identity(self.phase), tf.float16)  # Cast phase to float16
         phase = phase * (wavelength_0 / wavelength)  # Scale phase with wavelength
 
-        phase = tf.math.mod(phase, 2 * np.pi)  # Wrap phase to [0, 2π]
+        # phase = tf.math.mod(phase, 2 * np.pi)  # Wrap phase to [0, 2π]
         
         if im_u is None:
             print("im_u is None")

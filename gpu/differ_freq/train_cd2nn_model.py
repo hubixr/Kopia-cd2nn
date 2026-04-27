@@ -23,14 +23,15 @@ tf.keras.backend.clear_session()
 DOE_SHAPE = (128, 128)  # [px]
 PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
-PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.1  # [m]
+PROPAGATION_DISTANCE_BEETWEEN_DOE = 0.005  # [m]
 PROPAGATION_DISTANCE_TO_TARGET = 0.2  # [m]
-NUM_LAYERS = 1
-EPOCHS = 150
+NUM_LAYERS = 2
+EPOCHS = 200
 # ================================
-FREQUENCY_MIN = 180 * 1e9
-FREQUENCY_MAX = 250 * 1e9
+FREQUENCY_MIN = 70 * 1e9
+FREQUENCY_MAX = 140 * 1e9
 FREQUENCY_STEP = 1 * 1e9
+FREQUENCY_DWL = 105 * 1e9  # Reference frequency for phase scaling
 STEP_COUNT = (FREQUENCY_MAX - FREQUENCY_MIN) / FREQUENCY_STEP 
 print("Frequency steps:", STEP_COUNT)
 WAVELENGTH_MIN = C / (FREQUENCY_MAX)
@@ -42,17 +43,18 @@ print("Wavelength:", WAVELENGTH_STEP)
 # ================================
 LEARNING_RATE = 0.175                     # Currently unused, defined in lr_schedule, needed for file naming
 lr_schedule = tf.keras.optimizers.schedules.PiecewiseConstantDecay(
-    boundaries=[10, 15, 25, 40, 100],  # Epochs where the learning rate changes
-    values=[0.8, 0.4, 0.2, 0.05, 0.03, 0.01]  # Learning rates for each phase
+    boundaries=[10, 15, 25, 40, 100, 130, 160],  # Epochs where the learning rate
+    values=[0.8, 0.4, 0.2, 0.05, 0.03, 0.01, 0.003, 0.001]  # Learning rates for each phase
 )
-BATCH_SIZE = 16                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
-CALLBACK_PATIENCE = 10                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
+
+BATCH_SIZE = 8                       # ↑ Smoother gradients, more memory | ↓ Noisier gradients, less memory
+CALLBACK_PATIENCE = 15                 # ↑ Train longer before early stop | ↓ Stop training sooner if no improvement
 CALLBACK_MIN_DELTA = 1e-5             # ↑ Require larger improvement to continue | ↓ Continue with smaller improvements (default 1e-5)
-MSE_WEIGHT = 6.0                       # ↑ Higher MSE weight prioritizes reconstruction accuracy | ↓ Lower MSE weight allows other losses to dominate (default 1.0)
+MSE_WEIGHT = 1.0                       # ↑ Higher MSE weight prioritizes reconstruction accuracy | ↓ Lower MSE weight allows other losses to dominate (default 1.0)
 SMOOTHNESS_WEIGHT = 0 #1e-8              # ↑ Smoother phase patterns | ↓ Allow more dramatic phase variations (default 1e-8)
-POWER_LOSS_WEIGHT = 0.8                 # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
-FOCAL_INTENSITY_WEIGHT = 0         # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
-FOCAL_WINDOW_SIZE = 8              # Size of the focal window (default 4)
+POWER_LOSS_WEIGHT = 0             # ↑ Prioritize power efficiency | ↓ Allow more power loss for better focusing (default 1)
+FOCAL_INTENSITY_WEIGHT = 0       # ↑ Stronger focus at center | ↓ Less emphasis on central focusing (default 0.8)
+WINDOWS_RADIUS = 4              # Size of the focal radius (default 4)
 USE_ALL_LAYERS_POWER_LOSS = True      # True: Consider all layer losses | False: Only final layer power loss (default True)
 # ================================
 # SMOOTHNESS FUNCTION WEIGHTS 
@@ -72,7 +74,7 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     try:
         # Set a manual memory limit (in MB) for each GPU
-        memory_limit_mb = 32 * 1024  # 32 GB limit (in MB)
+        memory_limit_mb = 10 * 1024  # 32 GB limit (in MB)
         for gpu in gpus:
             tf.config.experimental.set_virtual_device_configuration(
                 gpu,
@@ -85,7 +87,7 @@ else:
     print("No GPUs found.")
 
 # Function to load .bmp file and preprocess it for the model
-def load_bmp_fields(file_path, target_shape):
+def load_bmp_fields(file_path):
     image = Image.open(file_path).convert('L')  # Convert to grayscale
     image_array = np.array(image, dtype=np.float32)  # Convert to numpy array
     image_array = image_array / 255.0  # Normalize to 0-1
@@ -191,7 +193,8 @@ model = CDNNModel(
     wavelength_step=WAVELENGTH_STEP,
     distance_to_plane=PROPAGATION_DISTANCE_TO_TARGET,
     distance_between_layers=PROPAGATION_DISTANCE_BEETWEEN_DOE,
-    pixel_size=PIXEL_SIZE
+    pixel_size=PIXEL_SIZE,
+    dwl=FREQUENCY_DWL
 )
 # Print all layers with their distance to the next layer
 print(f"Number of layers created: {len(model.prop_layers)}")
@@ -207,11 +210,11 @@ opt = tf.keras.optimizers.Adam(learning_rate=lr_schedule, clipnorm=1.0) #clipnor
 def psnr_metric(y_true, y_pred):
     # Ensure both tensors have the same shape
     if len(y_true.shape) == 4 and len(y_pred.shape) == 3:
-        # y_true has batch dimension, y_pred doesn't - add batch dimension to y_pred
-        y_pred = tf.expand_dims(y_pred, axis=0)
+        # y_true has batch + channel dims, y_pred only has batch - add channel dimension to y_pred
+        y_pred = tf.expand_dims(y_pred, axis=-1)
     elif len(y_true.shape) == 3 and len(y_pred.shape) == 4:
-        # y_pred has batch dimension, y_true doesn't - squeeze y_pred
-        y_pred = tf.squeeze(y_pred, axis=0)
+        # y_pred has batch + channel dims, y_true only has batch - squeeze channel from y_pred
+        y_pred = tf.squeeze(y_pred, axis=-1)
     
     # Ensure both have channel dimension
     if len(y_true.shape) == 3:
@@ -221,8 +224,6 @@ def psnr_metric(y_true, y_pred):
     
     return tf.image.psnr(y_true, y_pred, max_val=1.0)
 
-def calculate_power(y):
-    return tf.reduce_sum(tf.square(y), axis=[1, 2])
 
 lambda_mse = MSE_WEIGHT                 # Weight for MSE loss
 lambda_smooth = SMOOTHNESS_WEIGHT  # Weight for smoothness regularization def 1e-6
@@ -313,13 +314,22 @@ def custom_loss_with_model(model):
             power_loss_term = tf.reduce_mean(model.last_power_loss)
 
         shape = tf.shape(y_pred)
-        center_y = shape[1] // 2
-        center_x = shape[2] // 2
-        half_window = FOCAL_WINDOW_SIZE // 2
-        focal_patch = y_pred[:, 
-                             center_y-half_window:center_y+half_window, 
-                             center_x-half_window:center_x+half_window]
-        focal_intensity = tf.reduce_mean(focal_patch) 
+        batch_size = shape[0]
+        height = shape[1]
+        width = shape[2]
+        center_y = tf.cast(height // 2, tf.float32)
+        center_x = tf.cast(width // 2, tf.float32)
+        
+        y_coords = tf.cast(tf.range(height), tf.float32)
+        x_coords = tf.cast(tf.range(width), tf.float32)
+        y_grid, x_grid = tf.meshgrid(y_coords, x_coords, indexing='ij')
+        dist = tf.sqrt(tf.square(y_grid - center_y) + tf.square(x_grid - center_x))
+        circular_mask = tf.cast(dist <= tf.cast(WINDOWS_RADIUS, tf.float32), tf.float32)
+        circular_mask = tf.reshape(circular_mask, [1, height, width])
+        
+        masked_pred = y_pred * circular_mask
+        num_pixels_in_circle = tf.reduce_sum(circular_mask)
+        focal_intensity = tf.reduce_sum(masked_pred) / (num_pixels_in_circle * tf.cast(batch_size, tf.float32)) 
         total_loss = (
             mse_loss  # MSE already has lambda_mse applied
             + lambda_smooth * smoothness_loss
