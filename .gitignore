@@ -30,3 +30,12 @@ Seria5/
 *.csv
 *.h5
 *.pkl
+
+# Model files
+*.keras
+*.stl
+*.pt
+*.pth
+*.onnx
+*.pb
+*.tflite
