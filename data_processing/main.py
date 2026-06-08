@@ -36,13 +36,42 @@ def parse_meta_file(meta_path):
     
     return params
 
-# === Output folders ===
-cross_section_dir = 'przekroje_boczne_all'
-propagation_dir = 'propagation_outputs'
-os.makedirs(cross_section_dir, exist_ok=True)
-os.makedirs(propagation_dir, exist_ok=True)
+def process_npy_files(data_source_path, series_folder_path, label):
+    """Find .npy files in data_source_path and process them, saving to series_folder/result_data/<base_name>/"""
+    for file_path in glob.glob(os.path.join(data_source_path, '*.npy')):
+        print(f"\nProcessing file: {file_path}")
+        try:
+            data = np.load(file_path)  # Expected shape: (Z, Y, X)
+            print(f"  Data shape: {data.shape}")
+            
+            # Get base name (filename without extension) - this already includes the range/GHz value
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            
+            # Output: SeriaX/result_data/<base_name>/
+            result_data_base_dir = os.path.join(series_folder_path, 'result_data')
+            current_file_output_dir = os.path.join(result_data_base_dir, base_name)
 
-def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm):
+            os.makedirs(current_file_output_dir, exist_ok=True)
+            
+            # Look for corresponding .meta file
+            meta_path = os.path.splitext(file_path)[0] + '.meta'
+            params = parse_meta_file(meta_path)
+            
+            pixel_size_mm = params['pixel_size_mm']
+            z_step_mm = params['z_step_mm']
+            start_z_mm = params['start_z_mm']
+            z_offset_mm = params['z_offset_mm']
+            
+            print(f"  Parameters: pixel_size={pixel_size_mm} mm, z_step={z_step_mm} mm, start_z={start_z_mm} mm, z_offset={z_offset_mm} mm")
+            
+            # Create both cross-section and axis scans
+            create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm, output_dir=current_file_output_dir)
+            create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm, output_dir=current_file_output_dir)
+            
+        except Exception as e:
+            print(f"  Error processing {file_path}: {e}")
+
+def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm, output_dir):
     """Create cross-sections (Y-Z at middle X ± 2 pixels) in one image"""
     num_z, height, width = data.shape
     mid_x = width // 2
@@ -101,12 +130,12 @@ def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, s
     # Remove 'przekroj_boczny_' prefix if already present
     if base_name.startswith('przekroj_boczny_'):
         base_name = base_name[len('przekroj_boczny_'):]
-    out_path = os.path.join(cross_section_dir, f"przekroj_boczny_{base_name}.png")
+    out_path = os.path.join(output_dir, f"przekroj_boczny_{base_name}.png")
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Saved cross-sections: {out_path}")
 
-def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm):
+def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm, output_dir):
     """Create X-Y cross-sections at ALL Z positions showing complete beam propagation"""
     num_z, height, width = data.shape
     
@@ -164,47 +193,47 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
         cbar.ax.tick_params(labelsize=20)
     
     plt.tight_layout()
-    out_path = os.path.join(propagation_dir, f"{base_name}.png")
+    out_path = os.path.join(output_dir, f"{base_name}.png")
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Saved complete propagation (all Z positions): {out_path}")
 
 
-# === Process all .npy files in current directory subfolders ===
-current_dir = os.getcwd()
-print(f"Working in directory: {current_dir}")
+# === Main processing - run after all functions are defined ===
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
 
-for file_path in glob.glob('**/*.npy', recursive=True):
-    # Skip files in output directories
-    if cross_section_dir in file_path or propagation_dir in file_path:
-        continue
+print(f"Starting data processing from: {current_script_dir}")
+
+# Find all series folders inside data_processing/
+series_folders = [f.path for f in os.scandir(current_script_dir) if f.is_dir() and not f.name.startswith('.') and f.name not in ('propagation_outputs', 'przekroje_boczne_all')]
+
+for series_folder_path in series_folders:
+    series_name = os.path.basename(series_folder_path)
     
-    print(f"\nProcessing file: {file_path}")
-    try:
-        data = np.load(file_path)  # Expected shape: (Z, Y, X)
-        print(f"Data shape: {data.shape}")
-        
-        # Get base name for output files
-        base_name = os.path.splitext(os.path.basename(file_path))[0]
-        
-        # Look for corresponding .meta file
-        meta_path = os.path.splitext(file_path)[0] + '.meta'
-        params = parse_meta_file(meta_path)
-        
-        pixel_size_mm = params['pixel_size_mm']
-        z_step_mm = params['z_step_mm']
-        start_z_mm = params['start_z_mm']
-        z_offset_mm = params['z_offset_mm']
-        
-        print(f"Using parameters: pixel_size={pixel_size_mm} mm, z_step={z_step_mm} mm, start_z={start_z_mm} mm, z_offset={z_offset_mm} mm")
-        
-        # Create both cross-section and axis scans
-        create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm)
-        create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm)
-        
-    except Exception as e:
-        print(f"Error processing {file_path}: {e}")
+    # Construct path to 'dane z pomiarów' subfolder
+    data_source_path = os.path.join(series_folder_path, 'dane z pomiarów')
 
-print(f"\nProcessing complete!")
-print(f"Cross-sections saved to: {cross_section_dir}/")
-print(f"Axis scans saved to: {propagation_dir}/")
+    if os.path.isdir(data_source_path):
+        # Structure: SeriaX/dane z pomiarów/Seriax/*.npy
+        print(f"\nProcessing series: {series_name} -> dane z pomiarów/")
+        for seria_sub in os.scandir(data_source_path):
+            if seria_sub.is_dir() and not seria_sub.name.startswith('.'):
+                sub_name = seria_sub.name
+                sub_path = seria_sub.path
+                print(f"  Sub-series: {sub_name}")
+                process_npy_files(sub_path, series_folder_path, sub_name)
+    elif series_name == 'old':
+        # Structure: old/ref/*.npy, old/d2nn_krok1/*.npy, etc.
+        print(f"\nProcessing old series folders...")
+        for old_sub in os.scandir(series_folder_path):
+            if old_sub.is_dir() and not old_sub.name.startswith('.'):
+                sub_name = old_sub.name
+                sub_path = old_sub.path
+                print(f"  Old sub-series: {sub_name}")
+                process_npy_files(sub_path, old_sub.path, sub_name)
+    else:
+        # Structure: SeriaX/*.npy (directly in series folder)
+        print(f"\nProcessing series: {series_name} -> direct")
+        process_npy_files(series_folder_path, series_folder_path, series_name)
+
+print(f"\nProcessing complete for all series!")
