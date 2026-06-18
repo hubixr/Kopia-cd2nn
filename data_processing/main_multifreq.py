@@ -119,17 +119,37 @@ def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, s
         ax = fig.add_subplot(gs[row, int(col):int(col)+1])
         axes.append(ax)
     
-    # Plot each cross-section
+    # Normalize all profiles to [0, 1] for consistent colorbar
+    all_profiles = np.abs(np.stack([data[:, :, x] for x in x_positions]))
+    global_max = all_profiles.max()
+    if global_max == 0:
+        global_max = 1
+    
+    # Plot each cross-section (no per-subplot colorbar)
+    im = None
     for idx, x_pos in enumerate(x_positions):
-        profile = np.abs(data[:, :, x_pos])  # shape: (Z, Y)
+        profile = np.abs(data[:, :, x_pos]) / global_max
         
-        im = axes[idx].imshow(profile.T, cmap='hot', extent=[z[0], z[-1], y_extent[1], y_extent[0]], aspect='auto')
+        im = axes[idx].imshow(profile.T, cmap='hot',
+                              extent=[z[0], z[-1], y_extent[1], y_extent[0]],
+                              aspect='auto', vmin=0, vmax=1)
         axes[idx].set_title(f"X = {x_pos} (środek{x_pos-mid_x:+d})", fontsize=20)
         axes[idx].set_xlabel("Z [mm]", fontsize=20)
         axes[idx].set_ylabel("Y [pixels]", fontsize=20)
-        cbar = plt.colorbar(im, ax=axes[idx], label="Amplituda")
-        cbar.set_label("Amplituda", fontsize=20)
-        cbar.ax.tick_params(labelsize=20)
+    
+    # Shared colorbar — reuse the empty bottom-right cell if the grid isn't full
+    if n_plots < rows * cols:
+        cax = fig.add_subplot(gs[rows - 1, cols - 1])
+        cax.set_frame_on(False)
+        cax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+        bbox = cax.get_position()
+        cax.set_position([bbox.x0 + bbox.width * 0.45, bbox.y0,
+                          bbox.width * 0.10, bbox.height])
+        cbar = fig.colorbar(im, cax=cax, label="Amplituda")
+    else:
+        cbar = fig.colorbar(im, ax=axes, label="Amplituda", shrink=0.7)
+    cbar.set_label("Amplituda", fontsize=20)
+    cbar.ax.tick_params(labelsize=20)
     
     plt.tight_layout()
     
@@ -184,19 +204,38 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
         ax = fig.add_subplot(gs[row, int(col):int(col)+1])
         axes.append(ax)
     
-    # Plot each X-Y cross-section
+    # Normalize all slices to [0, 1] for consistent colorbar
+    all_slices = np.abs(data[z_indices, :, :])
+    global_max = all_slices.max()
+    if global_max == 0:
+        global_max = 1
+    
+    # Plot each X-Y cross-section (no per-subplot colorbar)
+    im = None
     for idx, z_idx in enumerate(z_indices):
-        # Get X-Y cross-section at this Z position
-        xy_slice = np.abs(data[z_idx, :, :])
+        xy_slice = np.abs(data[z_idx, :, :]) / global_max
         
-        im = axes[idx].imshow(xy_slice, cmap='hot', extent=[x_extent[0], x_extent[1], y_extent[1], y_extent[0]], aspect='equal')
+        im = axes[idx].imshow(xy_slice, cmap='hot',
+                              extent=[x_extent[0], x_extent[1], y_extent[1], y_extent[0]],
+                              aspect='equal', vmin=0, vmax=1)
         z_pos = z_positions[z_idx]
         axes[idx].set_title(f"Z={z_pos:.0f}mm", fontsize=20)
         axes[idx].set_xlabel("X [pixels]", fontsize=20)
         axes[idx].set_ylabel("Y [pixels]", fontsize=20)
-        cbar = plt.colorbar(im, ax=axes[idx], label="Amplituda")
-        cbar.set_label("Amplituda", fontsize=20)
-        cbar.ax.tick_params(labelsize=20)
+    
+    # Shared colorbar — reuse the empty bottom-right cell if the grid isn't full
+    if n_plots < rows * cols:
+        cax = fig.add_subplot(gs[rows - 1, cols - 1])
+        cax.set_frame_on(False)
+        cax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+        bbox = cax.get_position()
+        cax.set_position([bbox.x0 + bbox.width * 0.45, bbox.y0,
+                          bbox.width * 0.10, bbox.height])
+        cbar = fig.colorbar(im, cax=cax, label="Amplituda")
+    else:
+        cbar = fig.colorbar(im, ax=axes, label="Amplituda", shrink=0.7)
+    cbar.set_label("Amplituda", fontsize=20)
+    cbar.ax.tick_params(labelsize=20)
     
     plt.tight_layout()
     out_path = os.path.join(output_dir, f"{base_name}.png")

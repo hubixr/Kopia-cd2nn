@@ -16,7 +16,7 @@ GENERATE_PROPAGATION_SCANS = False
 # === Default Parameters (will be overridden by .meta files) ===
 default_pixel_size_mm = 1.5
 default_z_step_mm = 1.0
-default_z_offset_mm = 148
+default_z_offset_mm = 65
 
 
 # ============================================================
@@ -52,24 +52,9 @@ def parse_meta_file(meta_path):
     return params
 
 
-def matches_freq(base_name):
-    """Check if filename frequency matches TARGET_FREQ_GHZ"""
-    parts = base_name.split('_')
-    last = parts[-1]
-    # e.g. '_100ghz' or '95-125'
-    if last.endswith('ghz'):
-        return last.replace('ghz', '').startswith(str(TARGET_FREQ_GHZ))
-    elif '-' in last:
-        return last.split('-')[0] == str(TARGET_FREQ_GHZ)
-    return False
-
-
 def scan_and_process(data_source_path, series_folder_path):
-    """Scan directory for .npy files matching TARGET_FREQ_GHZ and process them."""
+    """Scan directory for .npy files and process all of them."""
     for file_path in glob.glob(os.path.join(data_source_path, '*.npy')):
-        base_name = os.path.splitext(os.path.basename(file_path))[0]
-        if not matches_freq(base_name):
-            continue
         process_single_file(file_path, "")
 
 
@@ -115,62 +100,78 @@ def process_single_file(file_path, output_dir):
 
 
 def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, start_z_mm, z_offset_mm, output_dir):
-    """Create cross-sections (Y-Z at middle X ± 2 pixels) in one image"""
+    """Create cross-sections (Y-Z at middle X ± 2 pixels) in one image.
+    
+    Layout: subplots in up to 3 columns, with a shared colorbar placed in the
+    bottom-right corner (reusing the empty cell when plots don't fill the grid).
+    """
     num_z, height, width = data.shape
     mid_x = width // 2
     
     # Define X positions: middle ± 2 pixels
     x_positions = [mid_x - 2, mid_x - 1, mid_x, mid_x + 1, mid_x + 2]
-    # Filter out positions that are out of bounds
     x_positions = [x for x in x_positions if 0 <= x < width]
     
     # Create coordinate arrays with Z = 300 - z + z_offset
     z_raw = np.arange(start_z_mm, start_z_mm + num_z * z_step_mm, z_step_mm)
     z = 300.0 - z_raw + z_offset_mm
-    y_extent = [0, height]  # Pixel indices: 0 to 32 (covers pixels 0-31)
+    y_extent = [0, height]
     
-    # Create figure with subplots for each X position - max 3 columns
     n_plots = len(x_positions)
-    cols = min(3, n_plots)  # Max 3 columns
-    rows = (n_plots + cols - 1) // cols  # Calculate needed rows
+    cols = min(3, n_plots)
+    rows = (n_plots + cols - 1) // cols
     
     fig = plt.figure(figsize=(5*cols, 5*rows))
     fig.suptitle(f"Przekroje boczne pola {base_name}", fontsize=24, y=0.98)
     
-    # Use GridSpec for better control of subplot positioning
     gs = fig.add_gridspec(rows, cols, hspace=0.4, wspace=0.7)
     axes = []
     
-    # Calculate positions for centering last row if needed
     plots_in_last_row = n_plots % cols if n_plots % cols != 0 else cols
     offset = (cols - plots_in_last_row) / 2.0 if n_plots % cols != 0 else 0
     
     for idx in range(n_plots):
         row = idx // cols
         col = idx % cols
-        
-        # For the last row with fewer elements, offset to center
-        if row == rows - 1:
+        if row == rows - 1 and n_plots % cols != 0:
             col = col + offset
-        
         ax = fig.add_subplot(gs[row, int(col):int(col)+1])
         axes.append(ax)
     
-    # Plot each cross-section
+    # Normalize all profiles to [0, 1] for consistent colorbar
+    all_profiles = np.abs(np.stack([data[:, :, x] for x in x_positions]))
+    global_max = all_profiles.max()
+    if global_max == 0:
+        global_max = 1
+    
+    # Plot each cross-section (no per-subplot colorbar)
+    im = None
     for idx, x_pos in enumerate(x_positions):
-        profile = np.abs(data[:, :, x_pos])  # shape: (Z, Y)
-        
-        im = axes[idx].imshow(profile.T, cmap='hot', extent=[z[0], z[-1], y_extent[1], y_extent[0]], aspect='auto')
+        profile = np.abs(data[:, :, x_pos]) / global_max
+        im = axes[idx].imshow(profile.T, cmap='hot',
+                              extent=[z[0], z[-1], y_extent[1], y_extent[0]],
+                              aspect='auto', vmin=0, vmax=1)
         axes[idx].set_title(f"X = {x_pos} (środek{x_pos-mid_x:+d})", fontsize=20)
         axes[idx].set_xlabel("Z [mm]", fontsize=20)
         axes[idx].set_ylabel("Y [pixels]", fontsize=20)
-        cbar = plt.colorbar(im, ax=axes[idx], label="Amplituda")
-        cbar.set_label("Amplituda", fontsize=20)
-        cbar.ax.tick_params(labelsize=20)
+    
+    # Shared colorbar — reuse the empty bottom-right cell if the grid isn't full
+    if n_plots < rows * cols:
+        cax = fig.add_subplot(gs[rows - 1, cols - 1])
+        cax.set_frame_on(False)
+        cax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+        # Narrow the colorbar to ~25% of cell width, centered
+        bbox = cax.get_position()
+        cax.set_position([bbox.x0 + bbox.width * 0.45, bbox.y0,
+                          bbox.width * 0.10, bbox.height])
+        cbar = fig.colorbar(im, cax=cax, label="Amplituda")
+    else:
+        cbar = fig.colorbar(im, ax=axes, label="Amplituda", shrink=0.7)
+    cbar.set_label("Amplituda", fontsize=20)
+    cbar.ax.tick_params(labelsize=20)
     
     plt.tight_layout()
     
-    # Remove 'przekroj_boczny_' prefix if already present
     if base_name.startswith('przekroj_boczny_'):
         base_name = base_name[len('przekroj_boczny_'):]
     out_path = os.path.join(output_dir, f"przekroj_boczny_{base_name}.png")
@@ -222,19 +223,39 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
         ax = fig.add_subplot(gs[row, int(col):int(col)+1])
         axes.append(ax)
     
-    # Plot each X-Y cross-section
+    # Normalize all slices to [0, 1] for consistent colorbar
+    all_slices = np.abs(data[z_indices, :, :])
+    global_max = all_slices.max()
+    if global_max == 0:
+        global_max = 1
+    
+    # Plot each X-Y cross-section (no per-subplot colorbar)
+    im = None
     for idx, z_idx in enumerate(z_indices):
-        # Get X-Y cross-section at this Z position
-        xy_slice = np.abs(data[z_idx, :, :])
+        xy_slice = np.abs(data[z_idx, :, :]) / global_max
         
-        im = axes[idx].imshow(xy_slice, cmap='hot', extent=[x_extent[0], x_extent[1], y_extent[1], y_extent[0]], aspect='equal')
+        im = axes[idx].imshow(xy_slice, cmap='hot',
+                              extent=[x_extent[0], x_extent[1], y_extent[1], y_extent[0]],
+                              aspect='equal', vmin=0, vmax=1)
         z_pos = z_positions[z_idx]
         axes[idx].set_title(f"Z={z_pos:.0f}mm", fontsize=20)
         axes[idx].set_xlabel("X [pixels]", fontsize=20)
         axes[idx].set_ylabel("Y [pixels]", fontsize=20)
-        cbar = plt.colorbar(im, ax=axes[idx], label="Amplituda")
-        cbar.set_label("Amplituda", fontsize=20)
-        cbar.ax.tick_params(labelsize=20)
+    
+    # Shared colorbar — reuse the empty bottom-right cell if the grid isn't full
+    if n_plots < rows * cols:
+        cax = fig.add_subplot(gs[rows - 1, cols - 1])
+        cax.set_frame_on(False)
+        cax.tick_params(left=False, labelleft=False, bottom=False, labelbottom=False)
+        # Narrow the colorbar to ~10% of cell width, centered
+        bbox = cax.get_position()
+        cax.set_position([bbox.x0 + bbox.width * 0.45, bbox.y0,
+                          bbox.width * 0.10, bbox.height])
+        cbar = fig.colorbar(im, cax=cax, label="Amplituda")
+    else:
+        cbar = fig.colorbar(im, ax=axes, label="Amplituda", shrink=0.7)
+    cbar.set_label("Amplituda", fontsize=20)
+    cbar.ax.tick_params(labelsize=20)
     
     plt.tight_layout()
     out_path = os.path.join(output_dir, f"{base_name}.png")
