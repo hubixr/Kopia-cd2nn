@@ -16,7 +16,7 @@ GENERATE_PROPAGATION_SCANS = False
 # === Default Parameters (will be overridden by .meta files) ===
 default_pixel_size_mm = 1.5
 default_z_step_mm = 1.0
-default_z_offset_mm = 65
+default_z_offset_mm = 0
 
 
 # ============================================================
@@ -124,7 +124,7 @@ def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, s
     fig = plt.figure(figsize=(5*cols, 5*rows))
     fig.suptitle(f"Przekroje boczne pola {base_name}", fontsize=24, y=0.98)
     
-    gs = fig.add_gridspec(rows, cols, hspace=0.4, wspace=0.7)
+    gs = fig.add_gridspec(rows, cols, hspace=0.3, wspace=0.2)
     axes = []
     
     plots_in_last_row = n_plots % cols if n_plots % cols != 0 else cols
@@ -136,6 +136,7 @@ def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, s
         if row == rows - 1 and n_plots % cols != 0:
             col = col + offset
         ax = fig.add_subplot(gs[row, int(col):int(col)+1])
+        ax.tick_params(labelsize=18)
         axes.append(ax)
     
     # Normalize all profiles to [0, 1] for consistent colorbar
@@ -144,16 +145,18 @@ def create_cross_section(data, file_path, base_name, pixel_size_mm, z_step_mm, s
     if global_max == 0:
         global_max = 1
     
-    # Plot each cross-section (no per-subplot colorbar)
+    # Plot each cross-section (no per-subplot colorbar, no per-subplot axis labels)
     im = None
     for idx, x_pos in enumerate(x_positions):
         profile = np.abs(data[:, :, x_pos]) / global_max
         im = axes[idx].imshow(profile.T, cmap='hot',
                               extent=[z[0], z[-1], y_extent[1], y_extent[0]],
                               aspect='auto', vmin=0, vmax=1)
-        axes[idx].set_title(f"X = {x_pos} (środek{x_pos-mid_x:+d})", fontsize=20)
-        axes[idx].set_xlabel("Z [mm]", fontsize=20)
-        axes[idx].set_ylabel("Y [pixels]", fontsize=20)
+        axes[idx].set_title(f"X = {x_pos} (środek{x_pos-mid_x:+d})", fontsize=22)
+    
+    # Shared axis labels for the whole figure
+    fig.supxlabel("Z [mm]", fontsize=22, y=0.04)
+    fig.supylabel("Y [pixels]", fontsize=22, x=0.02)
     
     # Shared colorbar — reuse the empty bottom-right cell if the grid isn't full
     if n_plots < rows * cols:
@@ -205,7 +208,7 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
     fig.suptitle(f"Propagacja w osi Z z krokiem {z_step_mm} mm - {base_name}", fontsize=24, y=0.98)
     
     # Use GridSpec with identical spacing as przekroje_boczne
-    gs = fig.add_gridspec(rows, cols, hspace=0.4, wspace=0.7)
+    gs = fig.add_gridspec(rows, cols, hspace=0.3, wspace=0.2)
     axes = []
     
     # Calculate positions for centering last row if needed
@@ -221,6 +224,7 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
             col = col + offset
         
         ax = fig.add_subplot(gs[row, int(col):int(col)+1])
+        ax.tick_params(labelsize=18)
         axes.append(ax)
     
     # Normalize all slices to [0, 1] for consistent colorbar
@@ -229,7 +233,7 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
     if global_max == 0:
         global_max = 1
     
-    # Plot each X-Y cross-section (no per-subplot colorbar)
+    # Plot each X-Y cross-section (no per-subplot colorbar, no per-subplot axis labels)
     im = None
     for idx, z_idx in enumerate(z_indices):
         xy_slice = np.abs(data[z_idx, :, :]) / global_max
@@ -238,9 +242,11 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
                               extent=[x_extent[0], x_extent[1], y_extent[1], y_extent[0]],
                               aspect='equal', vmin=0, vmax=1)
         z_pos = z_positions[z_idx]
-        axes[idx].set_title(f"Z={z_pos:.0f}mm", fontsize=20)
-        axes[idx].set_xlabel("X [pixels]", fontsize=20)
-        axes[idx].set_ylabel("Y [pixels]", fontsize=20)
+        axes[idx].set_title(f"Z={z_pos:.0f}mm", fontsize=22)
+    
+    # Shared axis labels for the whole figure
+    fig.supxlabel("X [pixels]", fontsize=22, y=0.04)
+    fig.supylabel("Y [pixels]", fontsize=22, x=0.02)
     
     # Shared colorbar — reuse the empty bottom-right cell if the grid isn't full
     if n_plots < rows * cols:
