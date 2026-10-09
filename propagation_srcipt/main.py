@@ -9,16 +9,18 @@ from scipy.interpolate import interp1d
 #Config
 PIXEL_SIZE = 9e-4  # [m]
 C = 299792458  # [m/s]
+N_AIR = 1.0
+N_MEDIUM = 1.53
 
 # Frequency range configuration
 FREQUENCY_MIN = 100 * 1e9  # [Hz] - minimum frequency
 FREQUENCY_MAX = 300 * 1e9  # [Hz] - maximum frequency
 FREQUENCY_STEP = 10 * 1e9   # [Hz] - step size for frequency variation
-DWL = 180e9  # [Hz] - reference frequency for wavelength channel
+DWL = 200.6517e9  # [Hz] - reference frequency for wavelength channel
 DWL_VALUE = C / DWL  # [m] - reference wavelength value
 
-DISTANCE_BETWEEN_DOE = 0.05 #[m]
-DISTANCE_TO_TARGET = 0.20 #[m]
+DISTANCE_BETWEEN_DOE = 0.101 #[m]
+DISTANCE_TO_TARGET = 0.201 #[m]
 PADDING_MULTIPLIER = 10  # Padding multiplier for the propagation layer
 H_BEFORE_PADDING, W_BEFORE_PADDING = 128, 128  # Size of the image in pixels before padding
 H = 128 * (PADDING_MULTIPLIER + 1)
@@ -127,8 +129,8 @@ for freq_idx, frequency in enumerate(frequency_values):
         im_u = U_current[..., 1]
         phase = np.pad(phase_masks[i], ((pad_size, pad_size), (pad_size, pad_size)), mode='constant')
 
-        #phase_scale
-        phase = phase * (wavelength / DWL_VALUE)
+        # Fixed structure height and refractive index: phase scales as lambda_ref / lambda.
+        phase = phase * (DWL_VALUE / wavelength)
 
         # Apply phase mask correctly (save original values)
         re_u_new = re_u * np.cos(phase) - im_u * np.sin(phase)
@@ -136,6 +138,9 @@ for freq_idx, frequency in enumerate(frequency_values):
         re_u = re_u_new
         im_u = im_u_new
 
+        # Angular-spectrum propagation, matching the reference
+        # PropagationLayer: use the wavelength inside the medium and
+        # suppress evanescent spatial-frequency components.
         dx = PIXEL_SIZE
         W_pad = re_u.shape[1]
         H_pad = re_u.shape[0]
@@ -143,28 +148,33 @@ for freq_idx, frequency in enumerate(frequency_values):
         fy = np.fft.fftfreq(H_pad, d=dx)  # oś pionowa
         FX, FY = np.meshgrid(fx, fy)
         r2 = FX**2 + FY**2
-        k = 2 * np.pi / wavelength
-        arg = -1j*np.pi*distance * wavelength * r2
-        h = np.exp(1j*k*distance)*np.exp(arg)
-
-        h_real = np.real(h).astype(np.complex64)
-        h_imag = np.imag(h).astype(np.complex64)
+        wavelength_medium = wavelength * N_AIR / N_MEDIUM
+        sqrt_argument = 1.0 - wavelength_medium**2 * r2
+        propagating = sqrt_argument > 0.0
+        transfer_function = (
+            np.exp(
+                1j
+                * 2
+                * np.pi
+                * (distance / wavelength_medium)
+                * np.sqrt(np.maximum(sqrt_argument, 0.0))
+            )
+            * propagating
+        ).astype(np.complex64)
 
         print("re_u shape:", re_u.shape)
         print("im_u shape:", im_u.shape)
 
-        print("h_real shape:", h_real.shape)
-        print("h_imag shape:", h_imag.shape)
+        print("transfer function shape:", transfer_function.shape)
         N = re_u.shape[0]  # Assuming square input for simplicity
         print("Convolution with phase mask", i + 1)
-        # Use complex FFT for correct shape and propagation
-        re_re = np.real(ifft2(fft2(re_u) * h_real))
-        im_im = np.real(ifft2(fft2(im_u) * h_imag))
-        re_im = np.real(ifft2(fft2(re_u) * h_imag))
-        im_re = np.real(ifft2(fft2(im_u) * h_real))
-
-        out_real = re_re - im_im
-        out_imag = re_im + im_re
+        # Propagate the complete complex field in the Fourier domain.
+        input_field_complex = re_u + 1j * im_u
+        output_field_complex = ifft2(
+            fft2(input_field_complex) * transfer_function
+        )
+        out_real = np.real(output_field_complex)
+        out_imag = np.imag(output_field_complex)
 
         # Crop output to original (unpadded) size
         crop_h_start = pad_size
@@ -454,5 +464,3 @@ print("- Exportable data (for combining multiple runs): frequency_data/")
 print("  - fwhm_data_[timestamp].csv")
 print("  - max_intensity_data_[timestamp].csv")
 print("="*60)
-
-

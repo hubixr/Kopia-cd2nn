@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 import glob
 import os
 
+# Paths are relative to the script, independent of the working directory.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INPUT_DIR = os.path.join(BASE_DIR, 'inputs')
+OUTPUT_DIR = os.path.join(BASE_DIR, 'outputs', 'singlefreq')
+
 # ============================================================
 # === Configuration — set these at the top                  ===
 # ============================================================
@@ -54,7 +59,7 @@ def parse_meta_file(meta_path):
 
 def scan_and_process(data_source_path, series_folder_path):
     """Scan directory for .npy files and process all of them."""
-    for file_path in glob.glob(os.path.join(data_source_path, '*.npy')):
+    for file_path in sorted(glob.glob(os.path.join(data_source_path, '*.npy'))):
         process_single_file(file_path, "")
 
 
@@ -71,9 +76,9 @@ def process_single_file(file_path, output_dir):
         if output_dir:
             current_file_output_dir = output_dir
         else:
-            # Default: <input_file_dir>/result_data/<base_name>/
+            # Output mirrors the input series and measurement name.
             current_file_output_dir = os.path.join(
-                os.path.dirname(file_path), 'result_data', base_name
+                OUTPUT_DIR, os.path.relpath(os.path.dirname(file_path), INPUT_DIR), base_name
             )
         os.makedirs(current_file_output_dir, exist_ok=True)
         
@@ -276,10 +281,11 @@ def create_axis_scans(data, file_path, base_name, pixel_size_mm, z_step_mm, star
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
 
 print(f"Single-frequency data processing — target: {TARGET_FREQ_GHZ} GHz")
-print(f"Working directory: {current_script_dir}")
+print(f"Input directory: {INPUT_DIR}")
+print(f"Output directory: {OUTPUT_DIR}")
 
-# Find all series folders inside data_processing/ (excluding 'old' and special dirs)
-series_folders = [f.path for f in os.scandir(current_script_dir)
+# Find measurement series inside inputs/.
+series_folders = [f.path for f in sorted(os.scandir(INPUT_DIR), key=lambda entry: entry.name)
                   if f.is_dir() and not f.name.startswith('.')
                   and f.name not in ('old', 'propagation_outputs', 'przekroje_boczne_all')]
 

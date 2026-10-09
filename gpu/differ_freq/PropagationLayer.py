@@ -126,10 +126,13 @@ class PropagationLayer(tf.keras.layers.Layer):
         re_im = tf.signal.irfft2d(tf.signal.rfft2d(re_u) * h_imag_wavelength)
         im_re = tf.signal.irfft2d(tf.signal.rfft2d(im_u) * h_real_wavelength)
 
-        output_power = tf.reduce_sum(re_re**2 + im_im**2)
-        self.power_loss = ((input_power - output_power) / input_power)
         out_real = re_re - im_im
         out_imag = re_im + im_re
+        # Optical power is the spatial sum of the field intensity:
+        # I = |U|^2 = Re(U)^2 + Im(U)^2.
+        output_intensity = tf.square(out_real) + tf.square(out_imag)
+        output_power = tf.reduce_sum(output_intensity)
+        self.power_loss = ((input_power - output_power) / input_power)
         tf.debugging.assert_all_finite(out_real, "NaN or Inf detected in out_real before cropping")
         tf.debugging.assert_all_finite(out_imag, "NaN or Inf detected in out_imag before cropping")
 

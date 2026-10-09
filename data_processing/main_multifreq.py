@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 import glob
 import os
 
+# Paths are relative to the script, independent of the working directory.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INPUT_DIR = os.path.join(BASE_DIR, 'inputs')
+OUTPUT_DIR = os.path.join(BASE_DIR, 'outputs', 'multifreq')
+
 # === Default Parameters (will be overridden by .meta files) ===
 default_pixel_size_mm = 1.5
 default_z_step_mm = 1.0
@@ -40,8 +45,8 @@ def parse_meta_file(meta_path):
     return params
 
 def process_npy_files(data_source_path, series_folder_path, label):
-    """Find .npy files in data_source_path and process them, saving to series_folder/result_data/<base_name>/"""
-    for file_path in glob.glob(os.path.join(data_source_path, '*.npy')):
+    """Find .npy files in data_source_path and process them, saving to outputs/multifreq/<series>/<base_name>/"""
+    for file_path in sorted(glob.glob(os.path.join(data_source_path, '*.npy'))):
         print(f"\nProcessing file: {file_path}")
         try:
             data = np.load(file_path)  # Expected shape: (Z, Y, X)
@@ -50,8 +55,8 @@ def process_npy_files(data_source_path, series_folder_path, label):
             # Get base name (filename without extension) - this already includes the range/GHz value
             base_name = os.path.splitext(os.path.basename(file_path))[0]
             
-            # Output: SeriaX/result_data/<base_name>/
-            result_data_base_dir = os.path.join(series_folder_path, 'result_data')
+            # Output mirrors the source directory under outputs/multifreq/.
+            result_data_base_dir = os.path.join(OUTPUT_DIR, os.path.relpath(data_source_path, INPUT_DIR))
             current_file_output_dir = os.path.join(result_data_base_dir, base_name)
 
             os.makedirs(current_file_output_dir, exist_ok=True)
@@ -272,7 +277,7 @@ def create_combined_cross_sections(data_source_path, series_folder_path):
     
     Layout: rows = 5 X positions (środek-2..środek+2), columns = frequencies sorted ascending.
     """
-    npy_files = glob.glob(os.path.join(data_source_path, '*.npy'))
+    npy_files = sorted(glob.glob(os.path.join(data_source_path, '*.npy')))
     if not npy_files:
         return
     
@@ -358,7 +363,7 @@ def create_combined_cross_sections(data_source_path, series_folder_path):
                 cbar.ax.tick_params(labelsize=10)
         
         plt.tight_layout()
-        out_dir = os.path.join(series_folder_path, 'result_data')
+        out_dir = os.path.join(OUTPUT_DIR, os.path.relpath(data_source_path, INPUT_DIR))
         os.makedirs(out_dir, exist_ok=True)
         out_path = os.path.join(out_dir, f"przekroje_boczne_zbiorcze_{prefix}.png")
         plt.savefig(out_path, dpi=150, bbox_inches='tight')
@@ -369,10 +374,11 @@ def create_combined_cross_sections(data_source_path, series_folder_path):
 # === Main processing - run after all functions are defined ===
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
 
-print(f"Starting data processing from: {current_script_dir}")
+print(f"Input directory: {INPUT_DIR}")
+print(f"Output directory: {OUTPUT_DIR}")
 
-# Find all series folders inside data_processing/
-series_folders = [f.path for f in os.scandir(current_script_dir) if f.is_dir() and not f.name.startswith('.') and f.name not in ('propagation_outputs', 'przekroje_boczne_all')]
+# Find measurement series inside inputs/.
+series_folders = [f.path for f in sorted(os.scandir(INPUT_DIR), key=lambda entry: entry.name) if f.is_dir() and not f.name.startswith('.') and f.name not in ('propagation_outputs', 'przekroje_boczne_all')]
 
 for series_folder_path in series_folders:
     series_name = os.path.basename(series_folder_path)

@@ -98,13 +98,16 @@ class PropagationLayer(tf.keras.layers.Layer):
 
         print("End of convolutions")
 
-        output_power = tf.reduce_sum(re_re**2 + im_im**2)
-        # print("Power after propagation:", output_power)
-        self.power_loss = ((input_power - output_power) / input_power)
-        # tf.print("Power loss percentage:", (self.power_loss * 100), " %")
         # Compute real and imaginary parts of the output
         out_real = re_re - im_im
         out_imag = re_im + im_re
+        # Optical power is the spatial sum of the field intensity:
+        # I = |U|^2 = Re(U)^2 + Im(U)^2.
+        output_intensity = tf.square(out_real) + tf.square(out_imag)
+        output_power = tf.reduce_sum(output_intensity)
+        # print("Power after propagation:", output_power)
+        self.power_loss = ((input_power - output_power) / input_power)
+        # tf.print("Power loss percentage:", (self.power_loss * 100), " %")
         # # Plot out_real and out_imag for the first sample in the batch
         # out_real_np = out_real[0].numpy() if hasattr(out_real, 'numpy') else tf.make_ndarray(tf.make_tensor_proto(out_real[0]))
         # out_imag_np = out_imag[0].numpy() if hasattr(out_imag, 'numpy') else tf.make_ndarray(tf.make_tensor_proto(out_imag[0]))

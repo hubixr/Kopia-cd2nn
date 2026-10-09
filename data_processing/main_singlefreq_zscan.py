@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 import glob
 import os
 
+# Paths are relative to the script, independent of the working directory.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INPUT_DIR = os.path.join(BASE_DIR, 'inputs')
+OUTPUT_DIR = os.path.join(BASE_DIR, 'outputs', 'zscan')
+
 # ============================================================
 # === Configuration — set these at the top                  ===
 # ============================================================
@@ -175,7 +180,7 @@ def process_single_file(file_path):
         print(f"  Data shape: {data.shape}")
         
         # Determine output directory
-        output_dir = os.path.join(os.path.dirname(file_path), 'result_data', base_name)
+        output_dir = os.path.join(OUTPUT_DIR, os.path.relpath(os.path.dirname(file_path), INPUT_DIR), base_name)
         os.makedirs(output_dir, exist_ok=True)
         
         # Load parameters from .meta
@@ -213,7 +218,7 @@ def process_single_file(file_path):
 
 def scan_and_process(data_source_path):
     """Scan directory for .npy files and process all of them."""
-    for file_path in glob.glob(os.path.join(data_source_path, '*.npy')):
+    for file_path in sorted(glob.glob(os.path.join(data_source_path, '*.npy'))):
         process_single_file(file_path)
 
 
@@ -223,10 +228,11 @@ def scan_and_process(data_source_path):
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
 
 print(f"Z-scan data processing")
-print(f"Working directory: {current_script_dir}")
+print(f"Input directory: {INPUT_DIR}")
+print(f"Output directory: {OUTPUT_DIR}")
 
-# Find all series folders inside data_processing/ (excluding 'old' and special dirs)
-series_folders = [f.path for f in os.scandir(current_script_dir)
+# Find measurement series inside inputs/.
+series_folders = [f.path for f in sorted(os.scandir(INPUT_DIR), key=lambda entry: entry.name)
                   if f.is_dir() and not f.name.startswith('.')
                   and f.name not in ('old', 'propagation_outputs', 'przekroje_boczne_all')]
 
